@@ -35,6 +35,70 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 
 	const supabase = createClient();
 
+	const normalizeValue = (value: string) =>
+		value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+	const parseScopeNumber = (scopeValue: string): 1 | 2 | 3 => {
+		const scopeStr = scopeValue?.toString().toLowerCase().trim() || "";
+		if (scopeStr.includes("scope")) {
+			const match = scopeStr.match(/\d+/);
+			if (match) {
+				const parsed = parseInt(match[0], 10);
+				if (parsed === 1 || parsed === 2 || parsed === 3) return parsed;
+			}
+		}
+
+		const directValue = parseInt(scopeValue, 10);
+		if (directValue === 1 || directValue === 2 || directValue === 3) return directValue;
+		return 2;
+	};
+
+	const normalizeUploadDate = (rawDate?: string): string => {
+		if (!rawDate || rawDate === "-") {
+			return new Date().toISOString().split("T")[0];
+		}
+
+		const trimmed = rawDate.trim();
+		const directDate = new Date(trimmed);
+		if (!Number.isNaN(directDate.getTime())) {
+			return directDate.toISOString().split("T")[0];
+		}
+
+		const monthMatch = trimmed.match(/^(\d{4})\s*\/\s*([A-Za-z]+)$/);
+		if (monthMatch) {
+			const [, year, monthName] = monthMatch;
+			const parsed = new Date(`${monthName} 1, ${year}`);
+			if (!Number.isNaN(parsed.getTime())) {
+				return parsed.toISOString().split("T")[0];
+			}
+		}
+
+		const yearMatch = trimmed.match(/^(\d{4})$/);
+		if (yearMatch) {
+			return `${yearMatch[1]}-01-01`;
+		}
+
+		return new Date().toISOString().split("T")[0];
+	};
+
+	const findMatchingFactor = (activityType: string, scopeNumber: 1 | 2 | 3, factors: any[]) => {
+		const normalizedActivity = normalizeValue(activityType);
+		const scopedFactors = factors.filter((factor) => factor.scope === scopeNumber);
+
+		return (
+			scopedFactors.find((factor) => normalizeValue(factor.activity_type) === normalizedActivity) ||
+			scopedFactors.find((factor) => normalizedActivity.includes(normalizeValue(factor.activity_type))) ||
+			scopedFactors.find((factor) => normalizeValue(factor.activity_type).includes(normalizedActivity)) ||
+			scopedFactors.find((factor) => {
+				const factorActivity = normalizeValue(factor.activity_type);
+				return normalizedActivity
+					.split(" ")
+					.filter((part) => part.length > 2)
+					.some((part) => factorActivity.includes(part));
+			})
+		);
+	};
+
 	const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		if (!file) return;
@@ -121,20 +185,14 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 
 			if (factorError) throw factorError;
 
-			const factorMap = new Map();
-			factors?.forEach((f: any) => {
-				factorMap.set(f.activity_type.toLowerCase(), f);
-			});
+			const factorList = factors || [];
 
 			// Prepare entries for insertion
 			const entriesToInsert = extractedData.map((item, index) => {
 				setProcessingStatus(`Processing entry ${index + 1} of ${extractedData.length}...`);
 
-				// Find matching factor
-				const matchedFactor = Array.from(factorMap.values()).find(
-					(f: any) =>
-						f.activity_type.toLowerCase() === item["Activity Type"].toLowerCase()
-				);
+				const scopeNumber = parseScopeNumber(item.Scope);
+				const matchedFactor = findMatchingFactor(item["Activity Type"], scopeNumber, factorList);
 
 				const quantity = parseFloat(item.Quantity);
 				const factor = matchedFactor?.factor || 1;
@@ -164,19 +222,9 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 
 								const { co2, ch4, n2o, co2e } = gasResults;
 
-				// Parse scope: handles both "2" and "Scope 2" formats
-				let scopeNumber = 2; // default
-				const scopeStr = item.Scope?.toString().toLowerCase().trim() || "";
-				if (scopeStr.includes("scope")) {
-					const match = scopeStr.match(/\d+/);
-					if (match) scopeNumber = parseInt(match[0]);
-				} else {
-					scopeNumber = parseInt(item.Scope) || 2;
-				}
-
 				return {
 					user_id: user.id,
-					activity_type: item["Activity Type"],
+					activity_type: matchedFactor?.activity_type || item["Activity Type"],
 					category: matchedFactor?.category || "Unknown",
 					scope: scopeNumber,
 					quantity,
@@ -186,7 +234,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					co2,
 					ch4,
 					n2o,
-					date: item.Date || new Date().toISOString().split("T")[0],
+					date: normalizeUploadDate(item.Date),
 					description: `Bulk uploaded from ${fileName}`,
 				};
 			});
@@ -201,7 +249,9 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					.from("emissions")
 					.insert(batch);
 
-				if (insertError) throw insertError;
+				if (insertError) {
+					throw new Error(`Batch ${Math.floor(i / batchSize) + 1}: ${insertError.message}`);
+				}
 				successCount += batch.length;
 				setProcessingStatus(
 					`Inserted ${successCount} of ${entriesToInsert.length} entries...`
