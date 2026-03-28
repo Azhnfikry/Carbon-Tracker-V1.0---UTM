@@ -55,7 +55,12 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		return 2;
 	};
 
-	const normalizeUploadDate = (rawDate?: string, rawYear?: string, rawMonth?: string): string => {
+	const normalizeUploadDate = (
+		rawDate?: string,
+		rawYear?: string,
+		rawMonth?: string,
+		rawActivityType?: string
+	): string => {
 		const buildFromYearMonth = (yearValue?: string, monthValue?: string) => {
 			const year = yearValue?.trim();
 			const month = monthValue?.trim();
@@ -117,9 +122,30 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 			return /^\d{4}$/.test(year) && monthNumber ? `${year}-${monthNumber}-01` : null;
 		};
 
+		const extractDateFromActivityType = (activityType?: string) => {
+			if (!activityType) return null;
+
+			const dateInBracketsMatch = activityType.match(/\((\d{4})\s*\/\s*([A-Za-z0-9]+)\)\s*$/);
+			if (dateInBracketsMatch) {
+				return buildFromYearMonth(dateInBracketsMatch[1], dateInBracketsMatch[2]);
+			}
+
+			const yearOnlyMatch = activityType.match(/\((\d{4})\)\s*$/);
+			if (yearOnlyMatch) {
+				return buildFromYearMonth(yearOnlyMatch[1], undefined);
+			}
+
+			return null;
+		};
+
 		const parsedYearMonth = buildFromYearMonth(rawYear, rawMonth);
 		if ((!rawDate || rawDate === "-") && parsedYearMonth) {
 			return parsedYearMonth;
+		}
+
+		const parsedFromActivityType = extractDateFromActivityType(rawActivityType);
+		if ((!rawDate || rawDate === "-") && parsedFromActivityType) {
+			return parsedFromActivityType;
 		}
 
 		if (!rawDate || rawDate === "-") {
@@ -146,7 +172,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 			return `${yearMatch[1]}-01-01`;
 		}
 
-		return parsedYearMonth || new Date().toISOString().split("T")[0];
+		return parsedYearMonth || parsedFromActivityType || new Date().toISOString().split("T")[0];
 	};
 
 	const findMatchingFactor = (activityType: string, scopeNumber: 1 | 2 | 3, factors: any[]) => {
@@ -302,7 +328,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					co2,
 					ch4,
 					n2o,
-					date: normalizeUploadDate(item.Date, item.Year, item.Month),
+					date: normalizeUploadDate(item.Date, item.Year, item.Month, item["Activity Type"]),
 					description: `Bulk uploaded from ${fileName}`,
 				};
 			});

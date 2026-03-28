@@ -257,18 +257,30 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
 
       // Process data rows (starting after header)
       let dataRowCount = 0;
+      let currentYear: any = null;
+      let currentMonth: any = null;
+
       for (let i = headerRowIndex + 1; i < rawData.length; i++) {
         const row = rawData[i];
         
         // Skip completely empty rows
         if (row.every(cell => !cell)) continue;
 
-        // Extract year and month for this row
-        const year = yearIndex >= 0 ? row[yearIndex] : null;
-        const month = monthIndex >= 0 ? row[monthIndex] : null;
-        const normalizedDate = buildNormalizedDate(year, month);
-        const dateLabel = (year && month) ? `${year}/${month}` :
-                         year ? `${year}` : "";
+        // Carry forward year/month values when grouped Excel rows leave them blank
+        const rowYear = yearIndex >= 0 ? row[yearIndex] : null;
+        const rowMonth = monthIndex >= 0 ? row[monthIndex] : null;
+
+        if (rowYear !== null && rowYear !== undefined && String(rowYear).trim() !== "") {
+          currentYear = rowYear;
+        }
+
+        if (rowMonth !== null && rowMonth !== undefined && String(rowMonth).trim() !== "") {
+          currentMonth = rowMonth;
+        }
+
+        const normalizedDate = buildNormalizedDate(currentYear, currentMonth);
+        const dateLabel = (currentYear && currentMonth) ? `${currentYear}/${currentMonth}` :
+                         currentYear ? `${currentYear}` : "";
 
         // Process each column (skip Year and Month columns)
         for (let colIdx = 0; colIdx < headers.length; colIdx++) {
@@ -288,8 +300,8 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
               Scope: extractScopeFromSheet(sheetName),
               Quantity: String(value).replace(/,/g, ""),
               Unit: extractUnitFromColumn(columnName, sheetName),
-              Year: year ? String(year) : undefined,
-              Month: month ? String(month) : undefined,
+              Year: currentYear ? String(currentYear) : undefined,
+              Month: currentMonth ? String(currentMonth) : undefined,
               Date: normalizedDate,
             });
             dataRowCount++;
