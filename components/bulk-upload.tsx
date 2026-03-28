@@ -16,6 +16,8 @@ interface ExtractedEmissionData {
 	Quantity: string;
 	Unit: string;
 	Date?: string;
+	Year?: string;
+	Month?: string;
 }
 
 interface BulkUploadProps {
@@ -53,7 +55,73 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		return 2;
 	};
 
-	const normalizeUploadDate = (rawDate?: string): string => {
+	const normalizeUploadDate = (rawDate?: string, rawYear?: string, rawMonth?: string): string => {
+		const buildFromYearMonth = (yearValue?: string, monthValue?: string) => {
+			const year = yearValue?.trim();
+			const month = monthValue?.trim();
+			if (!year) return null;
+
+			if (!month) {
+				return /^\d{4}$/.test(year) ? `${year}-01-01` : null;
+			}
+
+			const monthMap: Record<string, string> = {
+				"1": "01",
+				"01": "01",
+				jan: "01",
+				january: "01",
+				"2": "02",
+				"02": "02",
+				feb: "02",
+				february: "02",
+				"3": "03",
+				"03": "03",
+				mar: "03",
+				march: "03",
+				"4": "04",
+				"04": "04",
+				apr: "04",
+				april: "04",
+				"5": "05",
+				"05": "05",
+				may: "05",
+				"6": "06",
+				"06": "06",
+				jun: "06",
+				june: "06",
+				"7": "07",
+				"07": "07",
+				jul: "07",
+				july: "07",
+				"8": "08",
+				"08": "08",
+				aug: "08",
+				august: "08",
+				"9": "09",
+				"09": "09",
+				sep: "09",
+				sept: "09",
+				september: "09",
+				"10": "10",
+				oct: "10",
+				october: "10",
+				"11": "11",
+				nov: "11",
+				november: "11",
+				"12": "12",
+				dec: "12",
+				december: "12",
+			};
+
+			const monthNumber = monthMap[month.toLowerCase()];
+			return /^\d{4}$/.test(year) && monthNumber ? `${year}-${monthNumber}-01` : null;
+		};
+
+		const parsedYearMonth = buildFromYearMonth(rawYear, rawMonth);
+		if ((!rawDate || rawDate === "-") && parsedYearMonth) {
+			return parsedYearMonth;
+		}
+
 		if (!rawDate || rawDate === "-") {
 			return new Date().toISOString().split("T")[0];
 		}
@@ -78,7 +146,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 			return `${yearMatch[1]}-01-01`;
 		}
 
-		return new Date().toISOString().split("T")[0];
+		return parsedYearMonth || new Date().toISOString().split("T")[0];
 	};
 
 	const findMatchingFactor = (activityType: string, scopeNumber: 1 | 2 | 3, factors: any[]) => {
@@ -234,7 +302,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					co2,
 					ch4,
 					n2o,
-					date: normalizeUploadDate(item.Date),
+					date: normalizeUploadDate(item.Date, item.Year, item.Month),
 					description: `Bulk uploaded from ${fileName}`,
 				};
 			});
