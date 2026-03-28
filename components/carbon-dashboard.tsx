@@ -120,7 +120,8 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.refresh() // Refresh instead of redirecting to login
+    router.push("/auth/login")
+    router.refresh()
   }
 
   const handleLogin = () => {

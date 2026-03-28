@@ -1,54 +1,11 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export const runtime = "nodejs"
 
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs)
-    ),
-  ])
-}
-
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  return NextResponse.next({
     request,
   })
-
-  try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              request.cookies.set(name, value)
-            })
-            response = NextResponse.next({
-              request,
-            })
-            cookiesToSet.forEach(({ name, value, options }) =>
-              response.cookies.set(name, value, options)
-            )
-          },
-        },
-      },
-    )
-
-    // Refresh the session if needed - this is critical for session persistence
-    await withTimeout(supabase.auth.getUser(), 750, "Middleware auth")
-  } catch (error) {
-    // Silently handle Supabase connection errors in middleware
-    // App will continue to function without auth in offline mode
-  }
-
-  return response
 }
 
 export const config = {

@@ -48,7 +48,7 @@ export function LoginForm() {
 
       if (error) throw error
 
-      router.push("/")
+      router.push("/dashboard")
       router.refresh()
     } catch (error: any) {
       setError(error.message || "An error occurred during login")
