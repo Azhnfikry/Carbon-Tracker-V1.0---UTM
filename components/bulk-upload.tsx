@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileText, Loader2, CheckCircle, XCircle, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { calculateCO2Equivalent } from "@/lib/emission-calculations";
+import { calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
 import type { User } from "@supabase/supabase-js";
 
 interface ExtractedEmissionData {
@@ -15,6 +15,7 @@ interface ExtractedEmissionData {
 	Scope: string;
 	Quantity: string;
 	Unit: string;
+	Date?: string;
 }
 
 interface BulkUploadProps {
@@ -137,7 +138,31 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 
 				const quantity = parseFloat(item.Quantity);
 				const factor = matchedFactor?.factor || 1;
-				const co2_equivalent = quantity * factor;
+
+								// Calculate individual gas emissions using available factors or fallback ratios
+								const co2Factor = matchedFactor?.co2 ?? null;
+								const ch4Factor = matchedFactor?.ch4 ?? null;
+								const n2oFactor = matchedFactor?.n2o ?? null;
+								let gasResults;
+								if (co2Factor !== null || ch4Factor !== null || n2oFactor !== null) {
+									// Use available factors, fallback to 0 if missing
+									gasResults = calculateGasEmissionsByFactors(
+										quantity,
+										typeof co2Factor === "number" ? co2Factor : 0,
+										typeof ch4Factor === "number" ? ch4Factor : 0,
+										typeof n2oFactor === "number" ? n2oFactor : 0
+									);
+								} else {
+									// Fallback to ratios if no gas-specific factors
+									gasResults = calculateGasEmissionsByFactors(
+										quantity,
+										factor * 0.95,
+										factor * 0.03,
+										factor * 0.02
+									);
+								}
+
+								const { co2, ch4, n2o, co2e } = gasResults;
 
 				// Parse scope: handles both "2" and "Scope 2" formats
 				let scopeNumber = 2; // default
@@ -157,8 +182,11 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					quantity,
 					unit: matchedFactor?.unit || item.Unit,
 					emission_factor: factor,
-					co2_equivalent,
-					date: new Date().toISOString().split("T")[0],
+					co2_equivalent: co2e,
+					co2,
+					ch4,
+					n2o,
+					date: item.Date || new Date().toISOString().split("T")[0],
 					description: `Bulk uploaded from ${fileName}`,
 				};
 			});
@@ -286,32 +314,29 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 								</Button>
 							</div>
 
-							<div className="overflow-x-auto">
+							<div className="overflow-y-auto max-h-[400px] border rounded-lg">
 								<table className="w-full text-sm border-collapse">
-									<thead>
-										<tr className="border-b bg-gray-50">
+									<thead className="sticky top-0 bg-gray-50">
+										<tr className="border-b">
 											<th className="text-left p-2">Activity Type</th>
 											<th className="text-left p-2">Scope</th>
 											<th className="text-left p-2">Quantity</th>
 											<th className="text-left p-2">Unit</th>
+											<th className="text-left p-2">Date</th>
 										</tr>
 									</thead>
 									<tbody>
-										{extractedData.slice(0, 5).map((item, idx) => (
+										{extractedData.map((item, idx) => (
 											<tr key={idx} className="border-b hover:bg-gray-50">
 												<td className="p-2">{item["Activity Type"]}</td>
 												<td className="p-2">{item.Scope}</td>
 												<td className="p-2">{item.Quantity}</td>
 												<td className="p-2">{item.Unit}</td>
+												<td className="p-2">{item.Date || "-"}</td>
 											</tr>
 										))}
 									</tbody>
 								</table>
-								{extractedData.length > 5 && (
-									<div className="p-2 text-sm text-gray-600 text-center">
-										... and {extractedData.length - 5} more entries
-									</div>
-								)}
 							</div>
 
 							{/* Insert Button */}

@@ -51,16 +51,17 @@ export function ChartsPage({ entries, summary }: ChartsPageProps) {
 				};
 			}
 
-			acc[month].total += entry.co2Equivalent;
+			const entryCo2e = entry.co2_equivalent;
+			acc[month].total += entryCo2e;
 			acc[month].count += 1;
 
 			// Add to appropriate scope based on entry type
 			if (entry.scope === 1) {
-				acc[month].scope1 += entry.co2Equivalent;
+				acc[month].scope1 += entryCo2e;
 			} else if (entry.scope === 2) {
-				acc[month].scope2 += entry.co2Equivalent;
+				acc[month].scope2 += entryCo2e;
 			} else {
-				acc[month].scope3 += entry.co2Equivalent;
+				acc[month].scope3 += entryCo2e;
 			}
 
 			return acc;

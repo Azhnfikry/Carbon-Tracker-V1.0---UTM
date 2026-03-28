@@ -1,189 +1,206 @@
-// Document upload component with OCR extraction
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Upload, FileText, X } from 'lucide-react';
-import { ExtractedData } from '@/types/emission';
+import { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExtractionResult } from "@/types/emission";
 
 interface DocumentUploadProps {
-  onFileUpload: (file: File, extractedData: ExtractedData) => void;
-  onRemove: () => void;
-  uploadedFile: File | null;
+  onExtractionComplete?: (result: ExtractionResult) => void;
 }
 
-export default function DocumentUpload({ onFileUpload, onRemove, uploadedFile }: DocumentUploadProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+export function DocumentUpload({ onExtractionComplete }: DocumentUploadProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [result, setResult] = useState<ExtractionResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  };
-
-  const processFile = async (file: File) => {
+  const handleFileSelect = async (file: File) => {
     // Validate file type
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const validTypes = ["image/jpeg", "image/png", "application/pdf"];
     if (!validTypes.includes(file.type)) {
-      alert('Please upload a PDF, JPG, or PNG file');
+      setError("Please upload a JPEG, PNG, or PDF file");
       return;
     }
 
-    // Validate file size (max 10MB)
+    // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+      setError("File size must be less than 10MB");
       return;
     }
 
-    setIsProcessing(true);
+    setError(null);
+    setIsLoading(true);
 
     try {
-      // Call the real Gemini OCR API
-      const formData = new FormData();
-      formData.append('file', file);
+      // Read file as base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const base64String = e.target?.result as string;
 
-      const response = await fetch('/api/ocr', {
-        method: 'POST',
-        body: formData,
-      });
+          // Call OCR API
+          const response = await fetch("/api/ocr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              base64Data: base64String,
+              mimeType: file.type,
+            }),
+          });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to extract data');
-      }
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to extract data");
+          }
 
-      const result = await response.json();
-      
-      if (result.success && result.extractedData) {
-        const extractedData = {
-          quantity: result.extractedData.value || result.extractedData.quantity,
-          unit: result.extractedData.unit,
-          date: result.extractedData.date,
-          confidence: result.extractedData.confidence,
-          dataType: result.extractedData.detectedDataType,
-          supplier: result.extractedData.supplierName,
-          reasoning: result.extractedData.reasoning,
-          secondaryValue: result.extractedData.secondaryValue,
-          secondaryDataType: result.extractedData.secondaryDataType,
-        };
-        
-        onFileUpload(file, extractedData);
-        console.log('✅ OCR extraction successful:', extractedData);
-      } else {
-        throw new Error(result.error || 'Failed to extract data from document');
-      }
-    } catch (error: any) {
-      console.error('OCR extraction error:', error);
-      alert('Failed to extract data: ' + (error.message || 'Unknown error'));
-    } finally {
-      setIsProcessing(false);
+          const extractionResult = (await response.json()) as ExtractionResult;
+          setResult(extractionResult);
+          setSuccess(`Successfully extracted data from ${file.name}`);
+
+          if (onExtractionComplete) {
+            onExtractionComplete(extractionResult);
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to process file");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      reader.onerror = () => {
+        setError("Failed to read file");
+        setIsLoading(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to process file");
+      setIsLoading(false);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    setIsDragging(true);
+    e.stopPropagation();
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  if (uploadedFile) {
-    return (
-      <Card className="border-2 border-emerald-200 bg-emerald-50">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <FileText className="h-8 w-8 text-emerald-600" />
-              <div>
-                <p className="font-medium text-emerald-900">{uploadedFile.name}</p>
-                <p className="text-sm text-emerald-700">
-                  {(uploadedFile.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={onRemove}
-              variant="ghost"
-              size="icon"
-              className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100"
-              disabled={isProcessing}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
 
   return (
-    <Card
-      className={`border-2 border-dashed transition-colors ${
-        isDragging
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-slate-300 bg-slate-50 hover:border-slate-400'
-      }`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    >
-      <CardContent className="p-8">
-        <div className="flex flex-col items-center justify-center text-center space-y-4">
-          <div className="p-4 bg-white rounded-full">
-            <Upload className="h-8 w-8 text-slate-400" />
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-base font-medium text-slate-700">
-              Upload your utility bill, receipt, or invoice
-            </p>
-            <p className="text-sm text-slate-500">
-              PDF, JPG, or PNG (max 10MB)
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={() => document.getElementById('file-upload')?.click()}
-              variant="default"
-              disabled={isProcessing}
-            >
-              {isProcessing ? 'Processing...' : 'Choose File'}
-            </Button>
-            <p className="text-sm text-slate-500 self-center">or drag and drop</p>
-          </div>
-
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Document Upload (OCR)</CardTitle>
+        <CardDescription>
+          Upload utility bills, fuel receipts, or invoices to extract emissions data
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Drop Zone */}
+        <div
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition"
+        >
           <input
-            id="file-upload"
+            ref={fileInputRef}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={handleFileChange}
+            accept=".jpg,.jpeg,.png,.pdf"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleFileSelect(e.target.files[0]);
+              }
+            }}
             className="hidden"
-            disabled={isProcessing}
           />
-
-          <div className="pt-4 border-t border-slate-200 w-full">
-            <p className="text-xs text-slate-500">
-              <strong>Note:</strong> We'll extract key data from your document automatically.
-              You can review and edit before submitting.
-            </p>
-          </div>
+          <p className="text-sm text-gray-600">
+            Drag and drop your file here, or click to browse
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            Supported: JPEG, PNG, PDF (Max 10MB)
+          </p>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Success Alert */}
+        {success && (
+          <Alert className="bg-green-50 border-green-200">
+            <AlertDescription className="text-green-800">{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="ml-2 text-sm text-gray-600">Processing document...</p>
+          </div>
+        )}
+
+        {/* Results */}
+        {result && !isLoading && (
+          <div className="space-y-3">
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              {result.supplierName && (
+                <p className="text-sm">
+                  <strong>Supplier:</strong> {result.supplierName}
+                </p>
+              )}
+              <p className="text-sm">
+                <strong>Overall Confidence:</strong>{" "}
+                {(result.confidence * 100).toFixed(0)}%
+              </p>
+
+              {result.reasoning && (
+                <p className="text-xs text-gray-600">
+                  <strong>Notes:</strong> {result.reasoning}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Extracted Data:</p>
+              {result.items.map((item, idx) => (
+                <div key={idx} className="bg-blue-50 p-3 rounded border border-blue-200">
+                  <p className="text-sm">
+                    <strong>{item.dataType}:</strong> {item.value} {item.unit}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Confidence: {(item.confidence * 100).toFixed(0)}%
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setResult(null);
+                setSuccess(null);
+              }}
+            >
+              Upload Another File
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

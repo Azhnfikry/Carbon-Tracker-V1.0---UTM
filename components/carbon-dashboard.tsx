@@ -12,6 +12,7 @@ import { EmissionReport } from "@/components/emission-report"
 import { CompanyInfoForm } from "@/components/company-info-form"
 import { BulkUpload } from "@/components/bulk-upload"
 import { EmissionsOutlook } from "@/components/emissions-outlook"
+import { EmissionFactorsPage } from "@/components/emission-factors-page"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { createClient } from "@/lib/supabase/client"
 import { calculateEmissionSummary } from "@/lib/emission-calculations"
@@ -51,7 +52,7 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
 						quantity: 1000,
 						unit: "kWh",
 						emissionFactor: 0.5,
-						co2Equivalent: 500,
+						co2_equivalent: 500,
 						date: "2024-01-15",
 						description: "Office electricity consumption (Demo Data)",
 					},
@@ -63,7 +64,7 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
 						quantity: 500,
 						unit: "m³",
 						emissionFactor: 2.0,
-						co2Equivalent: 1000,
+						co2_equivalent: 1000,
 						date: "2024-01-10",
 						description: "Heating fuel consumption (Demo Data)",
 					},
@@ -87,8 +88,13 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
 				scope: entry.scope,
 				quantity: entry.quantity,
 				unit: entry.unit,
+				emission_factor: entry.emission_factor,
 				emissionFactor: entry.emission_factor,
+				co2_equivalent: entry.co2_equivalent,
 				co2Equivalent: entry.co2_equivalent,
+				co2: entry.co2,
+				ch4: entry.ch4,
+				n2o: entry.n2o,
 				date: entry.date,
 				description: entry.description,
 			}));
@@ -158,6 +164,8 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
         return <BulkUpload user={user} onUploadSuccess={refreshData} />
       case "emissions-outlook":
         return <EmissionsOutlook user={user} />
+      case "emission-factors":
+        return <EmissionFactorsPage />
       case "charts":
         return <ChartsPage entries={entries} summary={summary} />
       case "all-entries":

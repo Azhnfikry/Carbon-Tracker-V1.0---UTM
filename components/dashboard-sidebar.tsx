@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart3, Plus, FileText, FileJson, Moon, Sun, LogOut, Leaf, Building2, Upload, TrendingUp } from 'lucide-react';
+import { BarChart3, Plus, FileText, FileJson, Moon, Sun, LogOut, Leaf, Building2, Upload, TrendingUp, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +22,7 @@ export function DashboardSidebar({ activeTab, onTabChange, onLogout }: Dashboard
     { id: 'add-entry', label: 'Add Entry', icon: Plus },
     { id: 'bulk-upload', label: 'Bulk Upload', icon: Upload },
     { id: 'emissions-outlook', label: 'Emissions Outlook', icon: TrendingUp },
+    { id: 'emission-factors', label: 'Emission Factors', icon: Zap },
     { id: 'charts', label: 'Analytics', icon: BarChart3 },
     { id: 'all-entries', label: 'All Entries', icon: FileText },
     { id: 'reports', label: 'Reports', icon: FileJson },
