@@ -6,6 +6,15 @@ import { createClient } from "@/lib/supabase/client";
 import { CarbonDashboard } from "@/components/carbon-dashboard";
 import type { User } from "@supabase/supabase-js";
 
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -16,16 +25,20 @@ export default function DashboardPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await withTimeout(supabase.auth.getSession(), 1000, "Supabase session");
         const currentUser = data?.session?.user || null;
         setUser(currentUser);
 
         if (currentUser) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", currentUser.id)
-            .single();
+          const { data: profileData } = await withTimeout(
+            supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", currentUser.id)
+              .single(),
+            1000,
+            "Profile fetch"
+          );
 
           setProfile(profileData);
         }

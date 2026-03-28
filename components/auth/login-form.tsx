@@ -13,6 +13,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Leaf, Eye, EyeOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ])
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -28,10 +37,14 @@ export function LoginForm() {
     setError("")
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+        }),
+        8000,
+        "Sign in"
+      )
 
       if (error) throw error
 

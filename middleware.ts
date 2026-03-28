@@ -3,6 +3,15 @@ import { NextResponse, type NextRequest } from "next/server"
 
 export const runtime = "nodejs"
 
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ])
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request,
@@ -33,9 +42,7 @@ export async function middleware(request: NextRequest) {
     )
 
     // Refresh the session if needed - this is critical for session persistence
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    await withTimeout(supabase.auth.getUser(), 750, "Middleware auth")
   } catch (error) {
     // Silently handle Supabase connection errors in middleware
     // App will continue to function without auth in offline mode
