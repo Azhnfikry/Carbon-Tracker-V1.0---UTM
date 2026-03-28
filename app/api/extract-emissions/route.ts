@@ -29,6 +29,74 @@ interface ExtractedEmissionData {
   Date?: string;
 }
 
+function buildNormalizedDate(year: any, month: any): string | undefined {
+  const normalizedYear = year !== null && year !== undefined ? String(year).trim() : "";
+  const normalizedMonth = month !== null && month !== undefined ? String(month).trim() : "";
+
+  if (!normalizedYear) return undefined;
+
+  if (!normalizedMonth) {
+    return /^\d{4}$/.test(normalizedYear) ? `${normalizedYear}-01-01` : undefined;
+  }
+
+  const monthLookup: Record<string, string> = {
+    "1": "01",
+    "01": "01",
+    january: "01",
+    jan: "01",
+    "2": "02",
+    "02": "02",
+    february: "02",
+    feb: "02",
+    "3": "03",
+    "03": "03",
+    march: "03",
+    mar: "03",
+    "4": "04",
+    "04": "04",
+    april: "04",
+    apr: "04",
+    "5": "05",
+    "05": "05",
+    may: "05",
+    "6": "06",
+    "06": "06",
+    june: "06",
+    jun: "06",
+    "7": "07",
+    "07": "07",
+    july: "07",
+    jul: "07",
+    "8": "08",
+    "08": "08",
+    august: "08",
+    aug: "08",
+    "9": "09",
+    "09": "09",
+    september: "09",
+    sep: "09",
+    sept: "09",
+    "10": "10",
+    october: "10",
+    oct: "10",
+    "11": "11",
+    november: "11",
+    nov: "11",
+    "12": "12",
+    december: "12",
+    dec: "12",
+  };
+
+  const monthKey = normalizedMonth.toLowerCase();
+  const monthNumber = monthLookup[monthKey];
+
+  if (/^\d{4}$/.test(normalizedYear) && monthNumber) {
+    return `${normalizedYear}-${monthNumber}-01`;
+  }
+
+  return undefined;
+}
+
 // Helper function to extract data from CSV
 function extractFromCSV(text: string): ExtractedEmissionData[] {
   const lines = text.split("\n");
@@ -198,8 +266,9 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
         // Extract year and month for this row
         const year = yearIndex >= 0 ? row[yearIndex] : null;
         const month = monthIndex >= 0 ? row[monthIndex] : null;
-        const dateStr = (year && month) ? `${year}/${month}` : 
-                       year ? `${year}` : "";
+        const normalizedDate = buildNormalizedDate(year, month);
+        const dateLabel = (year && month) ? `${year}/${month}` :
+                         year ? `${year}` : "";
 
         // Process each column (skip Year and Month columns)
         for (let colIdx = 0; colIdx < headers.length; colIdx++) {
@@ -215,13 +284,13 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
             
             // Create emission record
             emissions.push({
-              "Activity Type": `${sheetName} - ${columnName}${dateStr ? ` (${dateStr})` : ""}`,
+              "Activity Type": `${sheetName} - ${columnName}${dateLabel ? ` (${dateLabel})` : ""}`,
               Scope: extractScopeFromSheet(sheetName),
               Quantity: String(value).replace(/,/g, ""),
               Unit: extractUnitFromColumn(columnName, sheetName),
               Year: year ? String(year) : undefined,
               Month: month ? String(month) : undefined,
-              Date: dateStr || undefined,
+              Date: normalizedDate,
             });
             dataRowCount++;
           }
