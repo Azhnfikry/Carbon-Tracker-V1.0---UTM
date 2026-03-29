@@ -2,24 +2,56 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Emission factors for different activities
-const EMISSION_FACTORS: Record<string, number> = {
-  'Electricity': 0.5, // kg CO2 per kWh
-  'Natural Gas': 2.0, // kg CO2 per m³
-  'Diesel': 2.68, // kg CO2 per liter
-  'Gasoline': 2.31, // kg CO2 per liter
-  'Business Travel - Air': 0.255, // kg CO2 per km
-  'Business Travel - Car': 0.21, // kg CO2 per km
-  'Business Travel - Rail': 0.041, // kg CO2 per km
-  'Paper': 1.5, // kg CO2 per kg
-  'Water Supply': 0.5, // kg CO2 per m³
+type EmissionRow = {
+  scope: number | string | null;
+  co2_equivalent?: number | string | null;
+  total_emissions?: number | string | null;
+  co2Equivalent?: number | string | null;
+  co2?: number | string | null;
+  ch4?: number | string | null;
+  n2o?: number | string | null;
+  description?: string | null;
+  activity_type?: string | null;
 };
+
+type ScopeGasTotals = {
+  mtco2e: number;
+  co2_mt: number;
+  ch4_mt: number;
+  n2o_mt: number;
+  hfcs_mt: number;
+  pfcs_mt: number;
+  sf6_mt: number;
+};
+
+const emptyScopeTotals = (): ScopeGasTotals => ({
+  mtco2e: 0,
+  co2_mt: 0,
+  ch4_mt: 0,
+  n2o_mt: 0,
+  hfcs_mt: 0,
+  pfcs_mt: 0,
+  sf6_mt: 0,
+});
+
+function toNumber(value: number | string | null | undefined): number {
+  if (value === null || value === undefined || value === '') return 0;
+
+  const parsed = typeof value === 'number'
+    ? value
+    : parseFloat(String(value).replace(/,/g, '').trim());
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
 
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    
-    // Create Supabase client with proper cookie handling
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,7 +73,6 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Get current user with detailed error handling
     const {
       data: { user },
       error: authError,
@@ -69,7 +100,6 @@ export async function GET(request: NextRequest) {
 
     console.log('Authenticated user:', user.id);
 
-    // Get user's emissions
     const { data: emissions, error } = await supabase
       .from('emissions')
       .select('*')
@@ -78,12 +108,21 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Emissions fetch error:', error);
-      return NextResponse.json({ error: 'Failed to fetch emissions: ' + error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch emissions: ' + error.message },
+        { status: 500 }
+      );
     }
+
+    const emptyEmissions = {
+      scope1: emptyScopeTotals(),
+      scope2: emptyScopeTotals(),
+      scope3: emptyScopeTotals(),
+      total: 0,
+    };
 
     if (!emissions) {
       console.warn('No emissions found for user:', user.id);
-      // Return empty report with no emissions
       const emptyReport = {
         generated_at: new Date().toLocaleString(),
         company_info: {
@@ -101,13 +140,13 @@ export async function GET(request: NextRequest) {
         scope_2_total: 0,
         scope_3_total: 0,
         total_emissions: 0,
+        emissions: emptyEmissions,
       };
       return NextResponse.json(emptyReport);
     }
 
     console.log(`Found ${emissions.length} emissions for user`);
 
-    // Get user profile for report header
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('full_name, email')
@@ -118,23 +157,26 @@ export async function GET(request: NextRequest) {
       console.warn('Profile fetch warning:', profileError.message);
     }
 
-    // Calculate emissions for each entry if not already calculated
-    const processedEmissions = emissions.map((emission: any) => {
-      // Use co2_equivalent from database, which is the actual emissions column
-      const total_emissions = emission.co2_equivalent || 
-                             emission.total_emissions || 
-                             emission.co2Equivalent || 0;
+    const processedEmissions = (emissions as EmissionRow[]).map((emission) => {
+      const totalEmissions = toNumber(
+        emission.co2_equivalent ??
+        emission.total_emissions ??
+        emission.co2Equivalent
+      );
 
       return {
         ...emission,
-        total_emissions: isNaN(total_emissions) ? 0 : parseFloat(String(total_emissions)),
+        scope: Number(emission.scope) || 0,
+        total_emissions: totalEmissions,
+        co2: toNumber(emission.co2),
+        ch4: toNumber(emission.ch4),
+        n2o: toNumber(emission.n2o),
         activity_description: emission.description || emission.activity_type || '-',
       };
     });
 
     console.log('Processed emissions count:', processedEmissions.length);
 
-    // Get company info
     let companyInfo = null;
     const { data: companyData, error: companyError } = await supabase
       .from('company_info')
@@ -148,24 +190,58 @@ export async function GET(request: NextRequest) {
       companyInfo = companyData;
     }
 
-    // Calculate emissions by scope (1, 2, and 3)
-    const scope1Emissions = processedEmissions
-      .filter((e: any) => e.scope === 1)
-      .reduce((sum: number, e: any) => sum + (e.total_emissions || 0), 0);
+    const calculateScopeGasTotals = (scope: number): ScopeGasTotals => {
+      const scopeEmissions = processedEmissions.filter((e) => e.scope === scope);
 
-    const scope2Emissions = processedEmissions
-      .filter((e: any) => e.scope === 2)
-      .reduce((sum: number, e: any) => sum + (e.total_emissions || 0), 0);
+      return {
+        mtco2e: round2(
+          scopeEmissions.reduce((sum, e) => sum + e.total_emissions, 0)
+        ),
+        co2_mt: round2(
+          scopeEmissions.reduce((sum, e) => sum + e.co2, 0)
+        ),
+        ch4_mt: round2(
+          scopeEmissions.reduce((sum, e) => sum + e.ch4, 0)
+        ),
+        n2o_mt: round2(
+          scopeEmissions.reduce((sum, e) => sum + e.n2o, 0)
+        ),
+        hfcs_mt: 0,
+        pfcs_mt: 0,
+        sf6_mt: 0,
+      };
+    };
 
-    const scope3Emissions = processedEmissions
-      .filter((e: any) => e.scope === 3)
-      .reduce((sum: number, e: any) => sum + (e.total_emissions || 0), 0);
+    const scope1Totals = calculateScopeGasTotals(1);
+    const scope2Totals = calculateScopeGasTotals(2);
+    const scope3Totals = calculateScopeGasTotals(3);
 
-    const totalEmissions = scope1Emissions + scope2Emissions + scope3Emissions;
+    const totalEmissions = round2(
+      scope1Totals.mtco2e + scope2Totals.mtco2e + scope3Totals.mtco2e
+    );
 
-    console.log('Scope totals:', { scope1Emissions, scope2Emissions, scope3Emissions, totalEmissions });
+    console.log('Scope totals:', {
+      scope1Emissions: scope1Totals.mtco2e,
+      scope2Emissions: scope2Totals.mtco2e,
+      scope3Emissions: scope3Totals.mtco2e,
+      totalEmissions,
+      scope1Gases: {
+        co2: scope1Totals.co2_mt,
+        ch4: scope1Totals.ch4_mt,
+        n2o: scope1Totals.n2o_mt,
+      },
+      scope2Gases: {
+        co2: scope2Totals.co2_mt,
+        ch4: scope2Totals.ch4_mt,
+        n2o: scope2Totals.n2o_mt,
+      },
+      scope3Gases: {
+        co2: scope3Totals.co2_mt,
+        ch4: scope3Totals.ch4_mt,
+        n2o: scope3Totals.n2o_mt,
+      },
+    });
 
-    // Generate simple report data (backwards compatible with existing UI)
     const reportData = {
       generated_at: new Date().toLocaleString(),
       company_info: {
@@ -179,10 +255,16 @@ export async function GET(request: NextRequest) {
       },
       user_name: profile?.full_name || 'User',
       user_email: profile?.email || user.email,
-      scope_1_total: parseFloat(scope1Emissions.toFixed(2)),
-      scope_2_total: parseFloat(scope2Emissions.toFixed(2)),
-      scope_3_total: parseFloat(scope3Emissions.toFixed(2)),
-      total_emissions: parseFloat(totalEmissions.toFixed(2)),
+      scope_1_total: scope1Totals.mtco2e,
+      scope_2_total: scope2Totals.mtco2e,
+      scope_3_total: scope3Totals.mtco2e,
+      total_emissions: totalEmissions,
+      emissions: {
+        scope1: scope1Totals,
+        scope2: scope2Totals,
+        scope3: scope3Totals,
+        total: totalEmissions,
+      },
     };
 
     return NextResponse.json(reportData, {
