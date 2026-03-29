@@ -83,6 +83,82 @@ function normalizeMonthValue(value: any): string | undefined {
   return MONTH_LOOKUP[normalizedMonth];
 }
 
+function extractYearMonthFromValue(value: any): { year?: string; month?: string } {
+  if (value === null || value === undefined) return {};
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return {
+      year: String(value.getFullYear()),
+      month: String(value.getMonth() + 1).padStart(2, "0"),
+    };
+  }
+
+  if (typeof value === "number" && value > 20000 && value < 60000) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed?.y && parsed?.m) {
+      return {
+        year: String(parsed.y),
+        month: String(parsed.m).padStart(2, "0"),
+      };
+    }
+  }
+
+  const text = String(value).trim();
+  if (!text) return {};
+
+  const yearMatch = text.match(/\b(19\d{2}|20\d{2})\b/);
+
+  const slashMonthYearMatch = text.match(/^(\d{1,2})[\/-](19\d{2}|20\d{2})$/);
+  if (slashMonthYearMatch) {
+    return {
+      month: String(parseInt(slashMonthYearMatch[1], 10)).padStart(2, "0"),
+      year: slashMonthYearMatch[2],
+    };
+  }
+
+  const yearSlashMonthMatch = text.match(/^(19\d{2}|20\d{2})[\/-](\d{1,2}|[A-Za-z]{3,9})$/);
+  if (yearSlashMonthMatch) {
+    const normalizedMonth = normalizeMonthValue(yearSlashMonthMatch[2]);
+    return {
+      year: yearSlashMonthMatch[1],
+      month: normalizedMonth,
+    };
+  }
+
+  const monthNameMatch = text.match(
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b/i
+  );
+
+  const month = monthNameMatch ? normalizeMonthValue(monthNameMatch[1]) : normalizeMonthValue(text);
+  const year = yearMatch ? yearMatch[1] : undefined;
+
+  return { year, month };
+}
+
+function inferRowDateMetadata(
+  row: any[],
+  currentYear: any,
+  currentMonth: any
+): { year: any; month: any } {
+  let inferredYear = currentYear;
+  let inferredMonth = currentMonth;
+
+  for (const cell of row) {
+    const { year, month } = extractYearMonthFromValue(cell);
+    if (!inferredYear && year) {
+      inferredYear = year;
+    }
+    if (!inferredMonth && month) {
+      inferredMonth = month;
+    }
+    if (inferredYear && inferredMonth) {
+      break;
+    }
+  }
+
+  return { year: inferredYear, month: inferredMonth };
+}
+
 function buildNormalizedDate(year: any, month: any): string | undefined {
   const normalizedYear = year !== null && year !== undefined ? String(year).trim() : "";
   const normalizedMonth = month !== null && month !== undefined ? String(month).trim() : "";
@@ -212,6 +288,49 @@ function isHeaderRow(row: any[]): boolean {
   return hasHeaderKeywords && nonEmptyCells.length >= 2;
 }
 
+function shouldMergeWithNextHeaderRow(currentRow: any[], nextRow: any[] | undefined): boolean {
+  if (!nextRow) return false;
+
+  const nextHeaders = nextRow
+    .map((cell) => cleanHeader(cell ? String(cell) : ""))
+    .filter(Boolean)
+    .map((cell) => cell.toLowerCase());
+
+  return nextHeaders.some((cell) =>
+    cell === "year" ||
+    cell === "month" ||
+    cell.includes("topup") ||
+    cell.includes("total")
+  );
+}
+
+function buildHeadersFromRows(primaryRow: any[], secondaryRow?: any[]): string[] {
+  const maxLength = Math.max(primaryRow.length, secondaryRow?.length || 0);
+  const headers: string[] = [];
+
+  for (let idx = 0; idx < maxLength; idx++) {
+    const primary = cleanHeader(primaryRow[idx] ? String(primaryRow[idx]) : "");
+    const secondary = cleanHeader(secondaryRow?.[idx] ? String(secondaryRow[idx]) : "");
+
+    if (secondary) {
+      const secondaryLower = secondary.toLowerCase();
+      if (secondaryLower === "year" || secondaryLower === "month") {
+        headers.push(secondary);
+        continue;
+      }
+
+      if (primary && secondaryLower !== primary.toLowerCase()) {
+        headers.push(`${primary} - ${secondary}`);
+        continue;
+      }
+    }
+
+    headers.push(primary || secondary || `Column_${idx}`);
+  }
+
+  return headers;
+}
+
 // Helper function to check if value is valid emission data
 function isValidEmissionValue(value: any): boolean {
   if (value === null || value === undefined || value === "") return false;
@@ -282,10 +401,9 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
       
       for (let i = 0; i < Math.min(rawData.length, 15); i++) {
         if (isHeaderRow(rawData[i])) {
-          headerRowIndex = i;
-          headers = rawData[i].map((cell, idx) => 
-            cell ? cleanHeader(cell.toString()) : `Column_${idx}`
-          );
+          const mergeNextRow = shouldMergeWithNextHeaderRow(rawData[i], rawData[i + 1]);
+          headerRowIndex = mergeNextRow ? i + 1 : i;
+          headers = buildHeadersFromRows(rawData[i], mergeNextRow ? rawData[i + 1] : undefined);
           console.log(`Found headers at row ${i + 1}:`, headers);
           break;
         }
@@ -331,6 +449,12 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
 
         if (rowMonth !== null && rowMonth !== undefined && String(rowMonth).trim() !== "") {
           currentMonth = rowMonth;
+        }
+
+        if (!currentYear || !currentMonth) {
+          const inferredRowMetadata = inferRowDateMetadata(row, currentYear, currentMonth);
+          currentYear = inferredRowMetadata.year;
+          currentMonth = inferredRowMetadata.month;
         }
 
         const normalizedDate = buildNormalizedDate(currentYear, currentMonth);
