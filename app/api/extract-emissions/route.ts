@@ -29,6 +29,60 @@ interface ExtractedEmissionData {
   Date?: string;
 }
 
+const MONTH_LOOKUP: Record<string, string> = {
+  "1": "01",
+  "01": "01",
+  january: "01",
+  jan: "01",
+  "2": "02",
+  "02": "02",
+  february: "02",
+  feb: "02",
+  "3": "03",
+  "03": "03",
+  march: "03",
+  mar: "03",
+  "4": "04",
+  "04": "04",
+  april: "04",
+  apr: "04",
+  "5": "05",
+  "05": "05",
+  may: "05",
+  "6": "06",
+  "06": "06",
+  june: "06",
+  jun: "06",
+  "7": "07",
+  "07": "07",
+  july: "07",
+  jul: "07",
+  "8": "08",
+  "08": "08",
+  august: "08",
+  aug: "08",
+  "9": "09",
+  "09": "09",
+  september: "09",
+  sep: "09",
+  sept: "09",
+  "10": "10",
+  october: "10",
+  oct: "10",
+  "11": "11",
+  november: "11",
+  nov: "11",
+  "12": "12",
+  december: "12",
+  dec: "12",
+};
+
+function normalizeMonthValue(value: any): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const normalizedMonth = String(value).trim().toLowerCase();
+  return MONTH_LOOKUP[normalizedMonth];
+}
+
 function buildNormalizedDate(year: any, month: any): string | undefined {
   const normalizedYear = year !== null && year !== undefined ? String(year).trim() : "";
   const normalizedMonth = month !== null && month !== undefined ? String(month).trim() : "";
@@ -39,62 +93,60 @@ function buildNormalizedDate(year: any, month: any): string | undefined {
     return /^\d{4}$/.test(normalizedYear) ? `${normalizedYear}-01-01` : undefined;
   }
 
-  const monthLookup: Record<string, string> = {
-    "1": "01",
-    "01": "01",
-    january: "01",
-    jan: "01",
-    "2": "02",
-    "02": "02",
-    february: "02",
-    feb: "02",
-    "3": "03",
-    "03": "03",
-    march: "03",
-    mar: "03",
-    "4": "04",
-    "04": "04",
-    april: "04",
-    apr: "04",
-    "5": "05",
-    "05": "05",
-    may: "05",
-    "6": "06",
-    "06": "06",
-    june: "06",
-    jun: "06",
-    "7": "07",
-    "07": "07",
-    july: "07",
-    jul: "07",
-    "8": "08",
-    "08": "08",
-    august: "08",
-    aug: "08",
-    "9": "09",
-    "09": "09",
-    september: "09",
-    sep: "09",
-    sept: "09",
-    "10": "10",
-    october: "10",
-    oct: "10",
-    "11": "11",
-    november: "11",
-    nov: "11",
-    "12": "12",
-    december: "12",
-    dec: "12",
-  };
-
-  const monthKey = normalizedMonth.toLowerCase();
-  const monthNumber = monthLookup[monthKey];
+  const monthNumber = normalizeMonthValue(normalizedMonth);
 
   if (/^\d{4}$/.test(normalizedYear) && monthNumber) {
     return `${normalizedYear}-${monthNumber}-01`;
   }
 
   return undefined;
+}
+
+function extractSheetDateMetadata(
+  rawData: any[][],
+  sheetName: string,
+  headerRowIndex: number
+): { year?: string; month?: string } {
+  const metadata: { year?: string; month?: string } = {};
+  const linesToInspect = [
+    sheetName,
+    ...rawData
+      .slice(0, Math.max(headerRowIndex, 0) + 1)
+      .map((row) => row.filter((cell) => cell !== null && cell !== undefined && String(cell).trim() !== "").join(" "))
+      .filter(Boolean),
+  ];
+
+  for (const line of linesToInspect) {
+    if (!metadata.year) {
+      const yearMatch = String(line).match(/\b(20\d{2}|19\d{2})\b/);
+      if (yearMatch) {
+        metadata.year = yearMatch[1];
+      }
+    }
+
+    if (!metadata.month) {
+      for (const token of String(line).split(/[^A-Za-z0-9]+/)) {
+        const monthNumber = normalizeMonthValue(token);
+        if (monthNumber) {
+          metadata.month = monthNumber;
+          break;
+        }
+      }
+    }
+
+    const explicitMonthMatch = String(line).match(
+      /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b/i
+    );
+    if (!metadata.month && explicitMonthMatch) {
+      metadata.month = normalizeMonthValue(explicitMonthMatch[1]);
+    }
+
+    if (metadata.year && metadata.month) {
+      break;
+    }
+  }
+
+  return metadata;
 }
 
 // Helper function to extract data from CSV
@@ -244,6 +296,9 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
         continue;
       }
 
+      const sheetDateMetadata = extractSheetDateMetadata(rawData, sheetName, headerRowIndex);
+      console.log(`Sheet-level date metadata for "${sheetName}":`, sheetDateMetadata);
+
       // Find Year and Month column indices
       const yearIndex = headers.findIndex(h => 
         h.toLowerCase() === "year" || h.toLowerCase().includes("year")
@@ -257,8 +312,8 @@ async function extractFromExcel(buffer: Uint8Array): Promise<ExtractedEmissionDa
 
       // Process data rows (starting after header)
       let dataRowCount = 0;
-      let currentYear: any = null;
-      let currentMonth: any = null;
+      let currentYear: any = sheetDateMetadata.year ?? null;
+      let currentMonth: any = sheetDateMetadata.month ?? null;
 
       for (let i = headerRowIndex + 1; i < rawData.length; i++) {
         const row = rawData[i];
