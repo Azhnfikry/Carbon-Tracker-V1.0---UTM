@@ -113,7 +113,7 @@ export const extractDataFromDocument = async (
           co2,
           ch4,
           n2o,
-          co2e: co2 + ch4 * 28 + n2o * 265,
+          co2e: co2 + ch4 + n2o,
         };
       }
 

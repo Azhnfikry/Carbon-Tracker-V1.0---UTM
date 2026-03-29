@@ -677,7 +677,7 @@ export function EmissionReport() {
             </div>
             <div className="col-span-2">
               <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Calculation Approach</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Emissions = Activity Data × Emission Factor × Global Warming Potential (GWP)</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Emissions = Activity Data × Emission Factor</p>
             </div>
           </div>
         </div>
