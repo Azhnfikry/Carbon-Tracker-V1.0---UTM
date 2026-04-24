@@ -6,6 +6,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createClient } from "@/lib/supabase/client";
 import { buildEmissionForecast, type MonthlyEmissionPoint } from "@/lib/emission-forecast";
 import {
+	buildScenarioAnalysis,
+	type ScenarioInputs,
+	type ScenarioChartPoint,
+} from "@/lib/emission-scenario";
+import {
 	CartesianGrid,
 	Legend,
 	Line,
@@ -25,6 +30,11 @@ import {
 	BarChart3,
 	Lightbulb,
 	Brain,
+	SlidersHorizontal,
+	Factory,
+	Car,
+	SunMedium,
+	Receipt,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
@@ -51,24 +61,40 @@ interface MetricsData {
 	scope2: number;
 	scope3: number;
 	topSources: Array<{ activity: string; emissions: number; percent: number }>;
-	monthlyTrend: Array<{ month: string; emissions: number }>;
 	yearOverYearGrowth: number;
 	forecastChart: ForecastChartPoint[];
+	annualForecast: MonthlyEmissionPoint[];
 	projectedNextMonth: number;
 	projectedQuarterTotal: number;
 	projectedTrendPercent: number;
 	modelConfidence: "low" | "medium" | "high";
 }
 
+const DEFAULT_SCENARIO_INPUTS: ScenarioInputs = {
+	solarAdoptionPercent: 30,
+	evFleetPercent: 20,
+	supplierSwitchPercent: 15,
+	carbonTaxRate: 60,
+};
+
+const priorityStyles = {
+	high: "border-red-600 bg-red-50 text-red-800",
+	medium: "border-amber-600 bg-amber-50 text-amber-800",
+	low: "border-blue-600 bg-blue-50 text-blue-800",
+} as const;
+
+const formatNumber = (value: number) => value.toFixed(0);
+
 export function EmissionsOutlook({ user }: { user: User | null }) {
 	const [metrics, setMetrics] = useState<MetricsData | null>(null);
+	const [scenarioInputs, setScenarioInputs] = useState<ScenarioInputs>(DEFAULT_SCENARIO_INPUTS);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const supabase = createClient();
 
 	useEffect(() => {
 		if (user) {
-			fetchEmissionsData();
+			void fetchEmissionsData();
 			return;
 		}
 
@@ -90,7 +116,6 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 			if (fetchError) throw fetchError;
 
 			const emissions = (data as EmissionRecord[]) || [];
-
 			const now = new Date();
 			const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 			const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -146,24 +171,6 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 				.sort((a, b) => b.emissions - a.emissions)
 				.slice(0, 5);
 
-			const monthlyMap = new Map<string, number>();
-			emissions.forEach((entry) => {
-				const date = new Date(entry.date);
-				const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-				monthlyMap.set(monthKey, (monthlyMap.get(monthKey) || 0) + (entry.co2_equivalent || 0));
-			});
-
-			const monthlyTrend = Array.from(monthlyMap.entries())
-				.sort(([a], [b]) => a.localeCompare(b))
-				.slice(-6)
-				.map(([month, emissionTotal]) => ({
-					month: new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", {
-						month: "short",
-						year: "2-digit",
-					}),
-					emissions: emissionTotal,
-				}));
-
 			const currentYearStart = new Date(now.getFullYear(), 0, 1);
 			const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
 			const lastYearEnd = new Date(now.getFullYear(), 0, 1);
@@ -189,7 +196,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 
 			const forecast = buildEmissionForecast(emissions, {
 				historyMonths: 6,
-				forecastMonths: 3,
+				forecastMonths: 12,
 			});
 
 			const forecastChart = [...forecast.history, ...forecast.forecast].map((point) => ({
@@ -206,9 +213,9 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 				scope2,
 				scope3,
 				topSources,
-				monthlyTrend,
 				yearOverYearGrowth,
 				forecastChart,
+				annualForecast: forecast.forecast,
 				projectedNextMonth: forecast.projectedNextMonth,
 				projectedQuarterTotal: forecast.projectedQuarterTotal,
 				projectedTrendPercent: forecast.trendPercent,
@@ -256,41 +263,64 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 				? "Moderate confidence"
 				: "Early estimate";
 
-	const recommendations = [
+	const scenario = buildScenarioAnalysis({
+		forecast: metrics.annualForecast,
+		scope1: metrics.scope1,
+		scope2: metrics.scope2,
+		scope3: metrics.scope3,
+		inputs: scenarioInputs,
+	});
+
+	const scenarioControls = [
 		{
-			title: "Switch to Renewable Energy",
-			savings: (metrics.scope2 * 0.8).toFixed(0),
-			impact: "80% reduction in Scope 2",
-			priority: "high",
+			id: "solarAdoptionPercent",
+			label: "Solar adoption",
+			icon: SunMedium,
+			value: scenarioInputs.solarAdoptionPercent,
+			max: 100,
+			suffix: "%",
+			description: "Reduce purchased electricity emissions through on-site solar or greener power.",
 		},
 		{
-			title: "Reduce Business Travel",
-			savings: (metrics.scope3 * 0.5).toFixed(0),
-			impact: "50% reduction in travel emissions",
-			priority: "medium",
+			id: "evFleetPercent",
+			label: "EV fleet transition",
+			icon: Car,
+			value: scenarioInputs.evFleetPercent,
+			max: 100,
+			suffix: "%",
+			description: "Shift fuel-based fleet activity into electric vehicles and cleaner transport.",
 		},
 		{
-			title: "Optimize Fleet Efficiency",
-			savings: (metrics.scope1 * 0.4).toFixed(0),
-			impact: "40% reduction in fuel consumption",
-			priority: "medium",
+			id: "supplierSwitchPercent",
+			label: "Supplier switch",
+			icon: Factory,
+			value: scenarioInputs.supplierSwitchPercent,
+			max: 100,
+			suffix: "%",
+			description: "Move procurement volume to lower-carbon suppliers and materials.",
 		},
 		{
-			title: "Partner with Green Suppliers",
-			savings: (metrics.scope3 * 0.3).toFixed(0),
-			impact: "30% reduction in supply chain",
-			priority: "low",
+			id: "carbonTaxRate",
+			label: "Carbon tax",
+			icon: Receipt,
+			value: scenarioInputs.carbonTaxRate,
+			max: 200,
+			suffix: "RM/tCO2e",
+			description: "Stress-test financial exposure under a carbon pricing scenario.",
 		},
 	] as const;
 
+	const topScenarioStrategy = scenario.strategies[0];
+	const nextBestStrategy = scenario.strategies[1];
+
 	return (
 		<div className="space-y-6">
-			<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
 				<Card>
 					<CardContent className="pt-6">
 						<div className="text-center">
 							<p className="mb-2 text-sm text-gray-600">Total Emissions</p>
-							<p className="text-3xl font-bold">{metrics.totalEmissions.toFixed(0)}</p>
+							<p className="text-3xl font-bold">{formatNumber(metrics.totalEmissions)}</p>
 							<p className="mt-1 text-xs text-gray-500">kg CO2e</p>
 						</div>
 					</CardContent>
@@ -343,7 +373,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 						<div className="text-center">
 							<p className="mb-2 text-sm text-gray-600">Predicted Next Month</p>
 							<p className="text-3xl font-bold">
-								{metrics.projectedNextMonth.toFixed(0)}
+								{formatNumber(metrics.projectedNextMonth)}
 							</p>
 							<p className="mt-1 text-xs text-gray-500">kg CO2e forecast</p>
 						</div>
@@ -355,7 +385,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Brain className="h-5 w-5" />
-						Machine Learning Prediction Trend
+						Forecasting Engine
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-6">
@@ -363,13 +393,13 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 						<div className="rounded-xl border bg-slate-50 p-4">
 							<p className="text-sm text-gray-600">Projected Next Month</p>
 							<p className="mt-2 text-2xl font-bold">
-								{metrics.projectedNextMonth.toFixed(0)} kg CO2e
+								{formatNumber(metrics.projectedNextMonth)} kg CO2e
 							</p>
 						</div>
 						<div className="rounded-xl border bg-slate-50 p-4">
 							<p className="text-sm text-gray-600">Projected Next 3 Months</p>
 							<p className="mt-2 text-2xl font-bold">
-								{metrics.projectedQuarterTotal.toFixed(0)} kg CO2e
+								{formatNumber(metrics.projectedQuarterTotal)} kg CO2e
 							</p>
 						</div>
 						<div className="rounded-xl border bg-slate-50 p-4">
@@ -395,10 +425,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 
 					<div className="h-80">
 						<ResponsiveContainer width="100%" height="100%">
-							<LineChart
-								data={metrics.forecastChart}
-								margin={{ top: 8, right: 16, left: 4, bottom: 8 }}
-							>
+							<LineChart data={metrics.forecastChart} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
 								<CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
 								<XAxis dataKey="label" />
 								<YAxis
@@ -429,7 +456,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 								<Line
 									type="monotone"
 									dataKey="predictedEmissions"
-									name="Predicted"
+									name="12-Month Forecast"
 									stroke="#ea580c"
 									strokeWidth={3}
 									strokeDasharray="6 6"
@@ -441,10 +468,128 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 					</div>
 
 					<p className="text-sm text-gray-600">
-						This forecast uses recent monthly emissions and a weighted trend model to estimate
-						total carbon consumption for the next few months. More historical data improves
-						the prediction quality.
+						The forecasting engine projects a 12-month emissions path using recent trend,
+						smoothed demand, and seasonal pattern checks. The scenario engine below then tests
+						how decarbonization choices could change that path.
 					</p>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<SlidersHorizontal className="h-5 w-5" />
+						Scenario Engine
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-6">
+					<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+						<div className="space-y-4 rounded-xl border bg-slate-50 p-4">
+							{scenarioControls.map((control) => {
+								const Icon = control.icon;
+
+								return (
+									<div key={control.id} className="space-y-2">
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<Icon className="h-4 w-4 text-slate-700" />
+												<p className="text-sm font-medium">{control.label}</p>
+											</div>
+											<p className="text-sm font-semibold text-slate-900">
+												{control.value} {control.suffix}
+											</p>
+										</div>
+										<input
+											type="range"
+											min={0}
+											max={control.max}
+											step={1}
+											value={control.value}
+											onChange={(event) =>
+												setScenarioInputs((current) => ({
+													...current,
+													[control.id]: Number(event.target.value),
+												}))
+											}
+											className="w-full accent-emerald-600"
+										/>
+										<p className="text-xs text-gray-600">{control.description}</p>
+									</div>
+								);
+							})}
+						</div>
+
+						<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+							<div className="rounded-xl border bg-emerald-50 p-4">
+								<p className="text-sm text-gray-600">Baseline 12-Month Forecast</p>
+								<p className="mt-2 text-2xl font-bold text-emerald-900">
+									{formatNumber(scenario.annualBaselineEmissions)} kg CO2e
+								</p>
+							</div>
+							<div className="rounded-xl border bg-green-50 p-4">
+								<p className="text-sm text-gray-600">Scenario 12-Month Outcome</p>
+								<p className="mt-2 text-2xl font-bold text-green-900">
+									{formatNumber(scenario.annualScenarioEmissions)} kg CO2e
+								</p>
+							</div>
+							<div className="rounded-xl border bg-blue-50 p-4">
+								<p className="text-sm text-gray-600">Avoided Emissions</p>
+								<p className="mt-2 text-2xl font-bold text-blue-900">
+									{formatNumber(scenario.annualAvoidedEmissions)} kg CO2e
+								</p>
+								<p className="mt-1 text-xs text-gray-600">
+									{scenario.annualReductionPercent.toFixed(1)}% reduction against baseline
+								</p>
+							</div>
+							<div className="rounded-xl border bg-amber-50 p-4">
+								<p className="text-sm text-gray-600">Carbon Tax Exposure</p>
+								<p className="mt-2 text-2xl font-bold text-amber-900">
+									RM {formatNumber(scenario.scenarioCarbonTaxCost)}
+								</p>
+								<p className="mt-1 text-xs text-gray-600">
+									RM {formatNumber(scenario.carbonTaxSavings)} avoided vs baseline
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="h-80">
+						<ResponsiveContainer width="100%" height="100%">
+							<LineChart data={scenario.chart} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
+								<CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+								<XAxis dataKey="month" />
+								<YAxis
+									tickFormatter={(value) => `${Number(value).toFixed(0)}`}
+									label={{
+										value: "kg CO2e",
+										angle: -90,
+										position: "insideLeft",
+										style: { textAnchor: "middle", fill: "#6b7280" },
+									}}
+								/>
+								<Tooltip
+									formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`}
+								/>
+								<Legend />
+								<Line
+									type="monotone"
+									dataKey="baselineEmissions"
+									name="Baseline forecast"
+									stroke="#64748b"
+									strokeWidth={3}
+									dot={false}
+								/>
+								<Line
+									type="monotone"
+									dataKey="scenarioEmissions"
+									name="Scenario outcome"
+									stroke="#16a34a"
+									strokeWidth={3}
+									dot={{ r: 3 }}
+								/>
+							</LineChart>
+						</ResponsiveContainer>
+					</div>
 				</CardContent>
 			</Card>
 
@@ -482,7 +627,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 									<div className="mb-2 flex justify-between">
 										<span className="text-sm font-medium">{item.name}</span>
 										<span className="text-sm text-gray-600">
-											{item.value.toFixed(0)} kg CO2e ({percent.toFixed(1)}%)
+											{formatNumber(item.value)} kg CO2e ({percent.toFixed(1)}%)
 										</span>
 									</div>
 									<div className="h-2 w-full rounded-full bg-gray-200">
@@ -515,7 +660,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 								<div>
 									<p className="text-sm font-medium">{source.activity}</p>
 									<p className="text-xs text-gray-600">
-										{source.emissions.toFixed(0)} kg CO2e
+										{formatNumber(source.emissions)} kg CO2e
 									</p>
 								</div>
 								<div className="text-right">
@@ -534,48 +679,42 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Lightbulb className="h-5 w-5 text-yellow-600" />
-						Reduction Recommendations
+						Scenario-Based Reduction Strategy
 					</CardTitle>
 				</CardHeader>
-				<CardContent>
-					<div className="space-y-3">
-						{recommendations.map((recommendation, index) => (
-							<div
-								key={index}
-								className={`rounded-lg border-l-4 p-4 ${
-									recommendation.priority === "high"
-										? "border-red-600 bg-red-50"
-										: recommendation.priority === "medium"
-											? "border-yellow-600 bg-yellow-50"
-											: "border-blue-600 bg-blue-50"
-								}`}
-							>
-								<div className="mb-2 flex items-start justify-between">
-									<div>
-										<p className="text-sm font-semibold">{recommendation.title}</p>
-										<p className="mt-1 text-xs text-gray-700">{recommendation.impact}</p>
-									</div>
-									<span
-										className={`rounded px-2 py-1 text-xs font-bold ${
-											recommendation.priority === "high"
-												? "bg-red-200 text-red-800"
-												: recommendation.priority === "medium"
-													? "bg-yellow-200 text-yellow-800"
-													: "bg-blue-200 text-blue-800"
-										}`}
-									>
-										{recommendation.priority.toUpperCase()}
-									</span>
+				<CardContent className="space-y-3">
+					{scenario.strategies.map((strategy) => (
+						<div
+							key={strategy.id}
+							className={`rounded-lg border-l-4 p-4 ${
+								priorityStyles[strategy.priority]
+							}`}
+						>
+							<div className="mb-2 flex items-start justify-between gap-4">
+								<div>
+									<p className="text-sm font-semibold">{strategy.title}</p>
+									<p className="mt-1 text-xs text-gray-700">{strategy.summary}</p>
 								</div>
+								<span className="rounded bg-white/70 px-2 py-1 text-xs font-bold">
+									{strategy.priority.toUpperCase()}
+								</span>
+							</div>
+							<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 								<div className="flex items-center gap-2 text-green-700">
 									<CheckCircle2 className="h-4 w-4" />
 									<span className="text-sm font-medium">
-										Potential savings: {recommendation.savings} kg CO2e
+										Current scenario gain: {formatNumber(strategy.annualSavings)} kg CO2e
+									</span>
+								</div>
+								<div className="flex items-center gap-2 text-slate-700">
+									<Target className="h-4 w-4" />
+									<span className="text-sm font-medium">
+										Remaining opportunity: {formatNumber(strategy.remainingOpportunity)}
 									</span>
 								</div>
 							</div>
-						))}
-					</div>
+						</div>
+					))}
 				</CardContent>
 			</Card>
 
@@ -583,7 +722,7 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Target className="h-5 w-5" />
-						Next Steps
+						Decision Support
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
@@ -591,30 +730,31 @@ export function EmissionsOutlook({ user }: { user: User | null }) {
 						<div className="flex items-start gap-3 rounded-lg bg-green-50 p-3">
 							<CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
 							<div>
-								<p className="text-sm font-medium">Set Reduction Target</p>
+								<p className="text-sm font-medium">Best lever right now</p>
 								<p className="text-xs text-gray-600">
-									Use the forecasted total to set a realistic carbon reduction goal for the
-									next quarter.
+									{topScenarioStrategy.title} has the biggest remaining impact under your
+									current assumptions.
 								</p>
 							</div>
 						</div>
 						<div className="flex items-start gap-3 rounded-lg bg-blue-50 p-3">
 							<Zap className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
 							<div>
-								<p className="text-sm font-medium">Focus on the Highest-Impact Source</p>
+								<p className="text-sm font-medium">Next best follow-up</p>
 								<p className="text-xs text-gray-600">
-									Prioritize the activity driving the largest share of emissions to shift the
-									forecast faster.
+									{nextBestStrategy
+										? `${nextBestStrategy.title} is the next strongest move after the top lever.`
+										: "Review your scope mix to identify the next strongest decarbonization action."}
 								</p>
 							</div>
 						</div>
 						<div className="flex items-start gap-3 rounded-lg bg-amber-50 p-3">
 							<TrendingDown className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
 							<div>
-								<p className="text-sm font-medium">Monitor Monthly Prediction Drift</p>
+								<p className="text-sm font-medium">Financial resilience</p>
 								<p className="text-xs text-gray-600">
-									Compare actual totals against the forecast each month and retrain the trend
-									with fresh data.
+									Under this scenario, the modeled carbon tax exposure is RM{" "}
+									{formatNumber(scenario.scenarioCarbonTaxCost)} over the next 12 months.
 								</p>
 							</div>
 						</div>

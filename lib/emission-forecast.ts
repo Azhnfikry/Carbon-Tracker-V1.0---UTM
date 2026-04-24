@@ -240,7 +240,9 @@ export function buildEmissionForecast(
 	});
 
 	const projectedNextMonth = forecast[0]?.emissions || 0;
-	const projectedQuarterTotal = forecast.reduce((sum, point) => sum + point.emissions, 0);
+	const projectedQuarterTotal = forecast
+		.slice(0, Math.min(3, forecast.length))
+		.reduce((sum, point) => sum + point.emissions, 0);
 	const trendPercent =
 		lastActual > EPSILON ? ((projectedNextMonth - lastActual) / lastActual) * 100 : 0;
 
