@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Plus, Trash2 } from 'lucide-react';
 
 // Scope 3 Activities Categories
 const SCOPE3_CATEGORIES = {
@@ -69,6 +69,13 @@ interface ExcludedActivity {
   reason: string;
 }
 
+interface FinancialReportingPeriod {
+  id: string;
+  from: string;
+  to: string;
+  revenue: string;
+}
+
 interface CompanyInfo {
   id?: string;
   user_id: string;
@@ -77,6 +84,7 @@ interface CompanyInfo {
   consolidation_approach: string;
   business_description: string;
   reporting_period: string;
+  financial_reporting_periods: string;
   scope3_activities: string;
   excluded_activities: string;
   base_year: string;
@@ -97,6 +105,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedScope3, setSelectedScope3] = useState<Set<string>>(new Set());
   const [excludedActivities, setExcludedActivities] = useState<Map<string, string>>(new Map());
+  const [financialPeriods, setFinancialPeriods] = useState<FinancialReportingPeriod[]>([]);
 
   const [formData, setFormData] = useState<CompanyInfo>({
     user_id: user?.id || '',
@@ -105,6 +114,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     consolidation_approach: 'equity-share',
     business_description: '',
     reporting_period: '',
+    financial_reporting_periods: '',
     scope3_activities: '',
     excluded_activities: '',
     base_year: new Date().getFullYear().toString(),
@@ -143,6 +153,69 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
   // Helper function to convert Map to JSON string
   const serializeExcludedActivities = (activitiesMap: Map<string, string>): string => {
     return JSON.stringify(Object.fromEntries(activitiesMap));
+  };
+
+  const createFinancialPeriodId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  };
+
+  const parseFinancialPeriods = (periodsStr: string): FinancialReportingPeriod[] => {
+    if (!periodsStr) return [];
+    try {
+      const parsed = JSON.parse(periodsStr);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((period) => ({
+        id: period.id || createFinancialPeriodId(),
+        from: period.from || '',
+        to: period.to || '',
+        revenue: period.revenue?.toString() || '',
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const serializeFinancialPeriods = (periods: FinancialReportingPeriod[]): string => {
+    return JSON.stringify(periods);
+  };
+
+  const syncFinancialPeriods = (periods: FinancialReportingPeriod[]) => {
+    setFinancialPeriods(periods);
+    setFormData((prev) => ({
+      ...prev,
+      financial_reporting_periods: serializeFinancialPeriods(periods),
+    }));
+  };
+
+  const handleAddFinancialPeriod = () => {
+    syncFinancialPeriods([
+      ...financialPeriods,
+      {
+        id: createFinancialPeriodId(),
+        from: '',
+        to: '',
+        revenue: '0',
+      },
+    ]);
+  };
+
+  const handleFinancialPeriodChange = (
+    periodId: string,
+    field: keyof Omit<FinancialReportingPeriod, 'id'>,
+    value: string
+  ) => {
+    syncFinancialPeriods(
+      financialPeriods.map((period) =>
+        period.id === periodId ? { ...period, [field]: value } : period
+      )
+    );
+  };
+
+  const handleRemoveFinancialPeriod = (periodId: string) => {
+    syncFinancialPeriods(financialPeriods.filter((period) => period.id !== periodId));
   };
 
   // Handle Scope 3 checkbox changes
@@ -208,10 +281,13 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         }
 
         if (data) {
+          const loadedFinancialPeriods = parseFinancialPeriods(data.financial_reporting_periods);
           setFormData({
             ...data,
             base_year: data.base_year?.toString() || new Date().getFullYear().toString(),
+            financial_reporting_periods: data.financial_reporting_periods || '',
           });
+          setFinancialPeriods(loadedFinancialPeriods);
           setSelectedScope3(parseScope3Activities(data.scope3_activities));
           setExcludedActivities(parseExcludedActivities(data.excluded_activities));
         }
@@ -257,6 +333,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         consolidation_approach: formData.consolidation_approach,
         business_description: formData.business_description,
         reporting_period: formData.reporting_period,
+        financial_reporting_periods: serializeFinancialPeriods(financialPeriods),
         scope3_activities: formData.scope3_activities,
         excluded_activities: formData.excluded_activities,
         base_year: parseInt(formData.base_year) || new Date().getFullYear(),
@@ -538,6 +615,84 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
                 onChange={(e) => handleInputChange(e, 'reporting_period')}
                 required
               />
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-slate-700">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <Label className="text-base font-semibold">Sustainability Reporting Period</Label>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    List reporting periods and revenue for financial reporting.
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" onClick={handleAddFinancialPeriod}>
+                  <Plus className="h-4 w-4" />
+                  New sustainability period
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[680px]">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_44px] gap-3 border-b border-gray-200 pb-2 text-sm font-medium text-muted-foreground dark:border-slate-700">
+                    <span>From</span>
+                    <span>To</span>
+                    <span>Revenue</span>
+                    <span className="sr-only">Actions</span>
+                  </div>
+
+                  {financialPeriods.length === 0 ? (
+                    <div className="py-6 text-sm text-muted-foreground">
+                      No sustainability reporting periods added yet.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                      {financialPeriods.map((period) => (
+                        <div
+                          key={period.id}
+                          className="grid grid-cols-[1fr_1fr_1fr_44px] gap-3 py-3"
+                        >
+                          <Input
+                            type="date"
+                            value={period.from}
+                            onChange={(e) =>
+                              handleFinancialPeriodChange(period.id, 'from', e.target.value)
+                            }
+                            aria-label="Financial reporting period from date"
+                          />
+                          <Input
+                            type="date"
+                            value={period.to}
+                            onChange={(e) =>
+                              handleFinancialPeriodChange(period.id, 'to', e.target.value)
+                            }
+                            aria-label="Financial reporting period to date"
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0"
+                            value={period.revenue}
+                            onChange={(e) =>
+                              handleFinancialPeriodChange(period.id, 'revenue', e.target.value)
+                            }
+                            aria-label="Financial reporting period revenue"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveFinancialPeriod(period.id)}
+                            aria-label="Remove sustainability reporting period"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">

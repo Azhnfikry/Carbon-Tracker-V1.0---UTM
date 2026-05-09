@@ -45,6 +45,7 @@ create table if not exists public.company_info (
   consolidation_approach text,
   business_description text,
   reporting_period text,
+  financial_reporting_periods text,
   scope3_activities text,
   excluded_activities text,
   base_year text,
