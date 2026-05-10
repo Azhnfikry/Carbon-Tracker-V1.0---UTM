@@ -73,6 +73,16 @@ create table if not exists public.emissions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.student_counts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  date date not null,
+  students integer not null check (students >= 0),
+  description text,
+  created_at timestamptz not null default now(),
+  unique (user_id, date)
+);
+
 create table if not exists public.emission_factors (
   id text primary key,
   activity_type text not null,
@@ -92,11 +102,14 @@ create table if not exists public.emission_factors (
 
 create index if not exists emissions_user_id_idx on public.emissions(user_id);
 create index if not exists emissions_date_idx on public.emissions(date desc);
+create index if not exists student_counts_user_id_idx on public.student_counts(user_id);
+create index if not exists student_counts_date_idx on public.student_counts(date desc);
 create index if not exists emission_factors_scope_activity_idx on public.emission_factors(scope, activity_type);
 
 alter table public.profiles enable row level security;
 alter table public.company_info enable row level security;
 alter table public.emissions enable row level security;
+alter table public.student_counts enable row level security;
 alter table public.emission_factors enable row level security;
 
 drop policy if exists "Profiles are viewable by owner" on public.profiles;
@@ -168,6 +181,35 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can delete their own emissions" on public.emissions;
 create policy "Users can delete their own emissions"
 on public.emissions
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can view their own student counts" on public.student_counts;
+create policy "Users can view their own student counts"
+on public.student_counts
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own student counts" on public.student_counts;
+create policy "Users can insert their own student counts"
+on public.student_counts
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own student counts" on public.student_counts;
+create policy "Users can update their own student counts"
+on public.student_counts
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own student counts" on public.student_counts;
+create policy "Users can delete their own student counts"
+on public.student_counts
 for delete
 to authenticated
 using (auth.uid() = user_id);

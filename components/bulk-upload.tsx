@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, Loader2, CheckCircle, XCircle, Download } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle, XCircle, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
 import type { User } from "@supabase/supabase-js";
@@ -20,17 +20,27 @@ interface ExtractedEmissionData {
 	Month?: string;
 }
 
+interface ExtractedStudentData {
+	Date: string;
+	Year: string;
+	Month: string;
+	Students: number;
+	Description: string;
+}
+
 interface BulkUploadProps {
 	user: User | null;
 	onUploadSuccess?: () => void;
 }
 
 export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
+	const [uploadType, setUploadType] = useState<"emissions" | "people">("emissions");
 	const [isUploading, setIsUploading] = useState(false);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
 	const [fileName, setFileName] = useState("");
 	const [extractedData, setExtractedData] = useState<ExtractedEmissionData[]>([]);
+	const [extractedStudentData, setExtractedStudentData] = useState<ExtractedStudentData[]>([]);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [processingStatus, setProcessingStatus] = useState("");
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +49,91 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 
 	const normalizeValue = (value: string) =>
 		value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+	const parseNumber = (value: unknown) => {
+		if (typeof value === "number") return value;
+		const parsed = Number(String(value ?? "").replace(/,/g, "").trim());
+		return Number.isFinite(parsed) ? parsed : 0;
+	};
+
+	const parsePeopleMonth = (year: string, month: string) => {
+		const monthMap: Record<string, string> = {
+			january: "01",
+			jan: "01",
+			february: "02",
+			feb: "02",
+			march: "03",
+			mar: "03",
+			april: "04",
+			apr: "04",
+			may: "05",
+			june: "06",
+			jun: "06",
+			july: "07",
+			jul: "07",
+			august: "08",
+			aug: "08",
+			september: "09",
+			sep: "09",
+			october: "10",
+			oct: "10",
+			november: "11",
+			nov: "11",
+			december: "12",
+			dec: "12",
+		};
+		const monthNumber = monthMap[month.toLowerCase().trim()];
+		if (!/^\d{4}$/.test(year) || !monthNumber) return null;
+		return `${year}-${monthNumber}-01`;
+	};
+
+	const extractPeopleTemplateFromFile = async (file: File): Promise<ExtractedStudentData[]> => {
+		const XLSX = await import("xlsx");
+		const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+		const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+		const rows = XLSX.utils.sheet_to_json<(string | number)[]>(worksheet, {
+			header: 1,
+			defval: "",
+			raw: false,
+		});
+
+		const headerRowIndex = rows.findIndex((row) => {
+			const normalized = row.map((cell) => normalizeValue(String(cell)));
+			return normalized.includes("year") && normalized.includes("month") && normalized.includes("student");
+		});
+
+		if (headerRowIndex === -1) {
+			throw new Error("Could not find Year, Month, and Student columns in this people template.");
+		}
+
+		const headers = rows[headerRowIndex].map((cell) => normalizeValue(String(cell)));
+		const yearIndex = headers.indexOf("year");
+		const monthIndex = headers.indexOf("month");
+		const studentIndex = headers.indexOf("student");
+		let activeYear = "";
+
+		return rows
+			.slice(headerRowIndex + 1)
+			.map((row) => {
+				const yearValue = String(row[yearIndex] || "").trim();
+				if (/^\d{4}$/.test(yearValue)) activeYear = yearValue;
+
+				const month = String(row[monthIndex] || "").trim();
+				const date = parsePeopleMonth(activeYear, month);
+				const students = Math.round(parseNumber(row[studentIndex]));
+
+				if (!date || students <= 0) return null;
+
+				return {
+					Date: date,
+					Year: activeYear,
+					Month: month,
+					Students: students,
+					Description: `People template upload from ${file.name}`,
+				};
+			})
+			.filter((row): row is ExtractedStudentData => Boolean(row));
+	};
 
 	const parseScopeNumber = (scopeValue: string): 1 | 2 | 3 => {
 		const scopeStr = scopeValue?.toString().toLowerCase().trim() || "";
@@ -207,8 +302,15 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 			"application/vnd.ms-excel",
 		];
 
-		if (!allowedTypes.includes(file.type) && !file.name.endsWith(".csv")) {
-			setError("Please upload a CSV, PDF, DOCX, or Excel file");
+		const extension = file.name.toLowerCase().split(".").pop() || "";
+		const allowedExtensions = uploadType === "people" ? ["xlsx", "xls"] : ["csv", "pdf", "docx", "xlsx", "xls"];
+
+		const isAllowedFile = uploadType === "people"
+			? allowedExtensions.includes(extension)
+			: allowedTypes.includes(file.type) || allowedExtensions.includes(extension);
+
+		if (!isAllowedFile) {
+			setError(uploadType === "people" ? "Please upload the people template as an Excel file" : "Please upload a CSV, PDF, DOCX, or Excel file");
 			return;
 		}
 
@@ -216,8 +318,35 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		setError("");
 		setSuccess("");
 		setExtractedData([]);
+		setExtractedStudentData([]);
+
+		if (uploadType === "people") {
+			await extractPeopleDataFromFile(file);
+			return;
+		}
 
 		await extractDataFromFile(file);
+	};
+
+	const extractPeopleDataFromFile = async (file: File) => {
+		setIsUploading(true);
+		setError("");
+
+		try {
+			const extracted = await extractPeopleTemplateFromFile(file);
+
+			if (extracted.length === 0) {
+				setError("No student data found in the people template");
+				return;
+			}
+
+			setExtractedStudentData(extracted);
+			setSuccess(`Successfully extracted ${extracted.length} monthly student records`);
+		} catch (error) {
+			setError(error instanceof Error ? error.message : "Failed to process people template");
+		} finally {
+			setIsUploading(false);
+		}
 	};
 
 	const extractDataFromFile = async (file: File) => {
@@ -366,6 +495,59 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		}
 	};
 
+	const handleStudentBulkInsert = async () => {
+		if (!user) {
+			setError("Please login to save student records");
+			return;
+		}
+
+		if (extractedStudentData.length === 0) {
+			setError("No student data to insert");
+			return;
+		}
+
+		setIsProcessing(true);
+		setProcessingStatus("Processing student records...");
+
+		try {
+			const rowsToUpsert = extractedStudentData.map((item) => ({
+				user_id: user.id,
+				date: item.Date,
+				students: item.Students,
+				description: item.Description,
+			}));
+
+			const batchSize = 100;
+			let successCount = 0;
+
+			for (let i = 0; i < rowsToUpsert.length; i += batchSize) {
+				const batch = rowsToUpsert.slice(i, i + batchSize);
+				const { error: insertError } = await supabase
+					.from("student_counts")
+					.upsert(batch, { onConflict: "user_id,date" });
+
+				if (insertError) {
+					throw new Error(`Batch ${Math.floor(i / batchSize) + 1}: ${insertError.message}`);
+				}
+
+				successCount += batch.length;
+				setProcessingStatus(`Saved ${successCount} of ${rowsToUpsert.length} student records...`);
+			}
+
+			setSuccess(`Successfully saved ${successCount} student records!`);
+			setExtractedStudentData([]);
+			setFileName("");
+			if (fileInputRef.current) fileInputRef.current.value = "";
+			onUploadSuccess?.();
+		} catch (error) {
+			console.error("Student count insertion error:", error);
+			setError(error instanceof Error ? error.message : "Failed to insert student records");
+		} finally {
+			setIsProcessing(false);
+			setProcessingStatus("");
+		}
+	};
+
 	return (
 		<div className="space-y-6">
 			<Card>
@@ -376,14 +558,53 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
+					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<Button
+							type="button"
+							variant={uploadType === "emissions" ? "default" : "outline"}
+							onClick={() => {
+								setUploadType("emissions");
+								setError("");
+								setSuccess("");
+								setExtractedData([]);
+								setExtractedStudentData([]);
+								setFileName("");
+								if (fileInputRef.current) fileInputRef.current.value = "";
+							}}
+							className="justify-start"
+						>
+							<FileText className="h-4 w-4" />
+							Emission Data
+						</Button>
+						<Button
+							type="button"
+							variant={uploadType === "people" ? "default" : "outline"}
+							onClick={() => {
+								setUploadType("people");
+								setError("");
+								setSuccess("");
+								setExtractedData([]);
+								setExtractedStudentData([]);
+								setFileName("");
+								if (fileInputRef.current) fileInputRef.current.value = "";
+							}}
+							className="justify-start"
+						>
+							<Users className="h-4 w-4" />
+							People / Students Template
+						</Button>
+					</div>
+
 					{/* File Upload Section */}
 					<div className="space-y-2">
-						<label className="block text-sm font-medium">Upload Document</label>
+						<label className="block text-sm font-medium">
+							{uploadType === "people" ? "Upload People Template" : "Upload Document"}
+						</label>
 						<div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition">
 							<input
 								ref={fileInputRef}
 								type="file"
-								accept=".csv,.pdf,.docx,.xlsx,.xls"
+								accept={uploadType === "people" ? ".xlsx,.xls" : ".csv,.pdf,.docx,.xlsx,.xls"}
 								onChange={handleFileChange}
 								disabled={isUploading}
 								className="hidden"
@@ -398,7 +619,9 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 									Click to upload or drag and drop
 								</span>
 								<span className="text-xs text-gray-500">
-									CSV (recommended), PDF, DOCX, or Excel supported
+									{uploadType === "people"
+										? "Upload Template UTM Data People.xlsx"
+										: "CSV (recommended), PDF, DOCX, or Excel supported"}
 								</span>
 							</label>
 						</div>
@@ -506,6 +729,71 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 						</div>
 					)}
 
+					{extractedStudentData.length > 0 && (
+						<div className="space-y-3">
+							<div className="flex justify-between items-center">
+								<h3 className="font-semibold">
+									Student Preview ({extractedStudentData.length} records)
+								</h3>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => {
+										setExtractedStudentData([]);
+										setFileName("");
+										if (fileInputRef.current) fileInputRef.current.value = "";
+									}}
+								>
+									Clear
+								</Button>
+							</div>
+
+							<div className="overflow-y-auto max-h-[400px] border rounded-lg">
+								<table className="w-full text-sm border-collapse">
+									<thead className="sticky top-0 bg-gray-50">
+										<tr className="border-b">
+											<th className="text-left p-2">Date</th>
+											<th className="text-left p-2">Year</th>
+											<th className="text-left p-2">Month</th>
+											<th className="text-left p-2">Students</th>
+										</tr>
+									</thead>
+									<tbody>
+										{extractedStudentData.map((item, idx) => (
+											<tr key={`${item.Date}-${idx}`} className="border-b hover:bg-gray-50">
+												<td className="p-2">{item.Date}</td>
+												<td className="p-2">{item.Year}</td>
+												<td className="p-2">{item.Month}</td>
+												<td className="p-2">{item.Students.toLocaleString()}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+
+							<Button
+								onClick={handleStudentBulkInsert}
+								disabled={!user || isProcessing}
+								className="w-full bg-green-600 hover:bg-green-700"
+							>
+								{!user ? (
+									"Login Required"
+								) : isProcessing ? (
+									<>
+										<Loader2 className="h-4 w-4 animate-spin mr-2" />
+										Processing...
+									</>
+								) : (
+									<>
+										<CheckCircle className="h-4 w-4 mr-2" />
+										Save {extractedStudentData.length} Student Records
+									</>
+								)}
+							</Button>
+						</div>
+					)}
+
 					{/* Upload Button */}
 					<Button
 						onClick={() => fileInputRef.current?.click()}
@@ -520,7 +808,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 						) : (
 							<>
 								<Upload className="h-4 w-4 mr-2" />
-								{fileName ? "Choose Different File" : "Select File"}
+								{fileName ? "Choose Different File" : uploadType === "people" ? "Select People Template" : "Select File"}
 							</>
 						)}
 					</Button>
@@ -545,10 +833,10 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					</ul>
 					<p className="mt-3 text-xs text-gray-600">
 						💡 <strong>Tip:</strong> CSV files work instantly. PDF/Word files require Gemini API key. 
-						Excel files must be converted to CSV.
+						For student numbers, choose People / Students Template and upload the UTM people Excel template directly.
 					</p>
 					<p className="mt-3">
-						<strong>2. Upload File:</strong> Click "Select File" and choose your prepared document (CSV, PDF, or DOCX)
+						<strong>2. Upload File:</strong> Click "Select File" and choose your prepared document, or select the people template mode for student counts.
 					</p>
 					<p>
 						<strong>3. Review Data:</strong> Check the preview table to ensure all entries

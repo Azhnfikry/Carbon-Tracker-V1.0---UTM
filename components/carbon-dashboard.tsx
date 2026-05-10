@@ -16,7 +16,7 @@ import { EmissionFactorsPage } from "@/components/emission-factors-page"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { createClient } from "@/lib/supabase/client"
 import { calculateEmissionSummary } from "@/lib/emission-calculations"
-import type { EmissionEntry, EmissionSummary } from "@/types/emission"
+import type { EmissionEntry, EmissionSummary, StudentCountEntry } from "@/types/emission"
 import type { User } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 
@@ -28,6 +28,7 @@ interface CarbonDashboardProps {
 export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
   const [activeTab, setActiveTab] = useState("overview")
   const [entries, setEntries] = useState<EmissionEntry[]>([])
+  const [studentEntries, setStudentEntries] = useState<StudentCountEntry[]>([])
   const [summary, setSummary] = useState<EmissionSummary>({
     totalEmissions: 0,
     scope1: 0,
@@ -106,10 +107,46 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
     }
   }
 
+  const loadStudentEntries = async () => {
+    try {
+      if (!user) {
+        return [
+          {
+            id: "demo-students-1",
+            date: "2024-01-01",
+            students: 2500,
+            description: "Demo student population",
+          },
+        ] satisfies StudentCountEntry[]
+      }
+
+      const { data, error } = await supabase
+        .from("student_counts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("date", { ascending: false })
+
+      if (error) throw error
+
+      return (data || []).map((entry) => ({
+        id: entry.id,
+        date: entry.date,
+        students: entry.students,
+        description: entry.description,
+        user_id: entry.user_id,
+        created_at: entry.created_at,
+      })) satisfies StudentCountEntry[]
+    } catch (error) {
+      console.error("Error loading student counts:", error)
+      return []
+    }
+  }
+
   const refreshData = async () => {
     setIsLoading(true)
-    const loadedEntries = await loadEmissionEntries()
+    const [loadedEntries, loadedStudentEntries] = await Promise.all([loadEmissionEntries(), loadStudentEntries()])
     setEntries(loadedEntries)
+    setStudentEntries(loadedStudentEntries)
     setSummary(calculateEmissionSummary(loadedEntries))
     setIsLoading(false)
   }
@@ -168,9 +205,9 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
       case "emission-factors":
         return <EmissionFactorsPage />
       case "charts":
-        return <ChartsPage entries={entries} summary={summary} />
+        return <ChartsPage entries={entries} summary={summary} studentEntries={studentEntries} />
       case "all-entries":
-        return <EmissionTable entries={entries} onDataChange={refreshData} user={user} />
+        return <EmissionTable entries={entries} studentEntries={studentEntries} onDataChange={refreshData} user={user} />
       case "reports":
         return <EmissionReport />
       case "company-info":

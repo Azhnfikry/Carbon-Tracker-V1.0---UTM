@@ -25,6 +25,15 @@ export interface EmissionSummary {
   byCategory: Record<string, number>
 }
 
+export interface StudentCountEntry {
+  id: string
+  date: string
+  students: number
+  description?: string
+  user_id?: string
+  created_at?: string
+}
+
 export interface EmissionFactor {
 	id: string;
 	activity_type: string;

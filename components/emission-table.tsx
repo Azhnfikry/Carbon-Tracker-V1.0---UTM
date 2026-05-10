@@ -1,29 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Search, MoreHorizontal, Edit, Trash2, FileText, CheckSquare, Square } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, MoreHorizontal, Edit, Trash2, FileText, CheckSquare, Square, Users, Plus } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { formatEmissions } from "@/lib/emission-calculations"
-import type { EmissionEntry } from "@/types/emission"
+import type { EmissionEntry, StudentCountEntry } from "@/types/emission"
 import type { User } from "@supabase/supabase-js"
 
 interface EmissionTableProps {
   entries: EmissionEntry[]
+  studentEntries: StudentCountEntry[]
   onDataChange: () => void
   user: User | null // Made user optional
 }
 
-export function EmissionTable({ entries, onDataChange, user }: EmissionTableProps) {
+export function EmissionTable({ entries, studentEntries, onDataChange, user }: EmissionTableProps) {
+  const [activeTable, setActiveTable] = useState("emissions")
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [studentForm, setStudentForm] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    students: "",
+    description: "",
+  })
   const supabase = createClient()
+
+  const filteredStudentEntries = studentEntries.filter(
+    (entry) =>
+      entry.students.toString().includes(searchTerm.toLowerCase()) ||
+      entry.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      new Date(entry.date).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   const filteredEntries = entries.filter(
     (entry) =>
@@ -136,6 +151,67 @@ export function EmissionTable({ entries, onDataChange, user }: EmissionTableProp
     }
   }
 
+  const handleAddStudentEntry = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!user) {
+      alert("Please login to add student counts.")
+      return
+    }
+
+    const students = Number(studentForm.students)
+    if (!studentForm.date || !Number.isFinite(students) || students < 0) {
+      alert("Please enter a valid date and student number.")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.from("student_counts").insert([
+        {
+          user_id: user.id,
+          date: studentForm.date,
+          students: Math.round(students),
+          description: studentForm.description || null,
+        },
+      ])
+
+      if (error) throw error
+      setStudentForm({
+        date: new Date().toISOString().slice(0, 10),
+        students: "",
+        description: "",
+      })
+      onDataChange()
+    } catch (error) {
+      console.error("Error adding student count:", error)
+      alert("Failed to add student count. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteStudentEntry = async (id: string) => {
+    if (!user) {
+      alert("Please login to delete student counts.")
+      return
+    }
+
+    if (!confirm("Are you sure you want to delete this student count?")) return
+
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.from("student_counts").delete().eq("id", id).eq("user_id", user.id)
+
+      if (error) throw error
+      onDataChange()
+    } catch (error) {
+      console.error("Error deleting student count:", error)
+      alert("Failed to delete student count. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const getScopeBadgeColor = (scope: number) => {
     switch (scope) {
       case 1:
@@ -152,16 +228,29 @@ export function EmissionTable({ entries, onDataChange, user }: EmissionTableProp
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            All Emission Entries
+            {activeTable === "emissions" ? <FileText className="h-5 w-5" /> : <Users className="h-5 w-5" />}
+            {activeTable === "emissions" ? "All Emission Entries" : "Student Numbers"}
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Tabs
+              value={activeTable}
+              onValueChange={(value) => {
+                setActiveTable(value)
+                setSearchTerm("")
+                setSelectedIds(new Set())
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="emissions">GHG Entries</TabsTrigger>
+                <TabsTrigger value="students">Students</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search entries..."
+                placeholder={activeTable === "emissions" ? "Search entries..." : "Search student records..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 w-64"
@@ -171,6 +260,41 @@ export function EmissionTable({ entries, onDataChange, user }: EmissionTableProp
         </div>
       </CardHeader>
       <CardContent>
+        {activeTable === "students" && user && (
+          <form
+            onSubmit={handleAddStudentEntry}
+            className="mb-4 grid grid-cols-1 gap-3 rounded-lg border bg-muted/20 p-4 md:grid-cols-[180px_180px_1fr_auto]"
+          >
+            <Input
+              type="date"
+              value={studentForm.date}
+              onChange={(e) => setStudentForm((prev) => ({ ...prev, date: e.target.value }))}
+              aria-label="Student count date"
+              required
+            />
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Students"
+              value={studentForm.students}
+              onChange={(e) => setStudentForm((prev) => ({ ...prev, students: e.target.value }))}
+              aria-label="Number of students"
+              required
+            />
+            <Input
+              placeholder="Description"
+              value={studentForm.description}
+              onChange={(e) => setStudentForm((prev) => ({ ...prev, description: e.target.value }))}
+              aria-label="Student count description"
+            />
+            <Button type="submit" disabled={isLoading}>
+              <Plus className="h-4 w-4" />
+              Add
+            </Button>
+          </form>
+        )}
+
         {selectedIds.size > 0 && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
             <span className="text-sm font-medium text-blue-900">
@@ -188,7 +312,59 @@ export function EmissionTable({ entries, onDataChange, user }: EmissionTableProp
             </Button>
           </div>
         )}
-        <div className="rounded-md border">
+        {activeTable === "students" ? (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Students</TableHead>
+                  <TableHead>Description</TableHead>
+                  {user && <TableHead className="w-[50px]"></TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredStudentEntries.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={user ? 4 : 3} className="text-center py-8 text-muted-foreground">
+                      {searchTerm
+                        ? "No student records match your search."
+                        : !user
+                          ? "Demo student data shown. Login to manage your own student counts."
+                          : "No student records found. Add your first student count."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredStudentEntries.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium">{new Date(entry.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{entry.students.toLocaleString()}</TableCell>
+                      <TableCell className="max-w-[360px] truncate">{entry.description || "-"}</TableCell>
+                      {user && (
+                        <TableCell>
+                          {!entry.id.startsWith("demo-") ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isLoading}
+                              onClick={() => handleDeleteStudentEntry(entry.id)}
+                              aria-label="Delete student count"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Demo</span>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -299,7 +475,8 @@ export function EmissionTable({ entries, onDataChange, user }: EmissionTableProp
               )}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
