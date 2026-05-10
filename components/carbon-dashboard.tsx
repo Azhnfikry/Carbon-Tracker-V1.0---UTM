@@ -14,6 +14,7 @@ import { BulkUpload } from "@/components/bulk-upload"
 import { EmissionsOutlook } from "@/components/emissions-outlook"
 import { EmissionFactorsPage } from "@/components/emission-factors-page"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
+import { AIAssistant } from "@/components/ai-assistant"
 import { createClient } from "@/lib/supabase/client"
 import { calculateEmissionSummary } from "@/lib/emission-calculations"
 import type { EmissionEntry, EmissionSummary, StudentCountEntry } from "@/types/emission"
@@ -239,6 +240,8 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
         return <EmissionFactorsPage />
       case "charts":
         return <ChartsPage entries={entries} summary={summary} studentEntries={studentEntries} />
+      case "ai-assistant":
+        return <AIAssistant />
       case "all-entries":
         return <EmissionTable entries={entries} studentEntries={studentEntries} onDataChange={refreshData} user={user} />
       case "reports":
