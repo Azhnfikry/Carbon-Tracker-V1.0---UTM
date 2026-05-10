@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Download, LogOut, LogIn, Leaf, FileText } from "lucide-react"
+import { Download, LogOut, LogIn, Leaf, FileText, Table2 } from "lucide-react"
 import { EmissionSummaryComponent } from "@/components/emission-summary"
 import { EmissionChart } from "@/components/emission-chart"
 import { EmissionForm } from "@/components/emission-form"
@@ -37,6 +37,7 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
     byCategory: {},
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [isExportingSheets, setIsExportingSheets] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -176,6 +177,38 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
     URL.revokeObjectURL(url)
   }
 
+  const handleExportGoogleSheets = async () => {
+    if (!user) {
+      alert("Please login to export to Google Sheets.")
+      return
+    }
+
+    const spreadsheetId = window.prompt("Paste your Google Sheet URL or spreadsheet ID. Share the sheet with the service account email first.")
+    if (!spreadsheetId) return
+
+    setIsExportingSheets(true)
+    try {
+      const response = await fetch("/api/google-sheets/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ spreadsheetId }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to export to Google Sheets")
+      }
+
+      alert(`Exported analytics to Google Sheets: ${data.url}`)
+      window.open(data.url, "_blank", "noopener,noreferrer")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to export to Google Sheets")
+    } finally {
+      setIsExportingSheets(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -243,15 +276,27 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportData}
-                className="flex items-center gap-2 bg-transparent"
-              >
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportGoogleSheets}
+                  disabled={isExportingSheets}
+                  className="flex items-center gap-2 bg-transparent"
+                >
+                  <Table2 className="h-4 w-4" />
+                  {isExportingSheets ? "Exporting..." : "Sheets"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportData}
+                  className="flex items-center gap-2 bg-transparent"
+                >
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </div>
             </div>
           </div>
         </header>

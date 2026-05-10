@@ -1,3 +1,5 @@
+create extension if not exists pgcrypto;
+
 create table if not exists public.student_counts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -7,6 +9,19 @@ create table if not exists public.student_counts (
   created_at timestamptz not null default now(),
   unique (user_id, date)
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'student_counts_user_id_date_key'
+      and conrelid = 'public.student_counts'::regclass
+  ) then
+    alter table public.student_counts
+    add constraint student_counts_user_id_date_key unique (user_id, date);
+  end if;
+end $$;
 
 create index if not exists student_counts_user_id_idx on public.student_counts(user_id);
 create index if not exists student_counts_date_idx on public.student_counts(date desc);
@@ -41,3 +56,5 @@ on public.student_counts
 for delete
 to authenticated
 using (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';
