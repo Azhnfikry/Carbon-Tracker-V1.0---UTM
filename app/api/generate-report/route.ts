@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildEmissionForecast } from '@/lib/emission-forecast';
+import { buildScenarioAnalysis, type ScenarioInputs } from '@/lib/emission-scenario';
 
 type EmissionRow = {
   scope: number | string | null;
@@ -27,6 +28,23 @@ type ScopeGasTotals = {
   pfcs_mt: number;
   sf6_mt: number;
 };
+
+type StudentCountRow = {
+  date: string | null;
+  students: number | string | null;
+};
+
+const DEFAULT_SCENARIO_INPUTS: ScenarioInputs = {
+  solarAdoptionPercent: 30,
+  evFleetPercent: 20,
+  supplierSwitchPercent: 15,
+  carbonTaxRate: 60,
+};
+
+const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  year: 'numeric',
+});
 
 const emptyScopeTotals = (): ScopeGasTotals => ({
   mtco2e: 0,
@@ -161,6 +179,16 @@ export async function GET(request: NextRequest) {
       console.warn('Profile fetch warning:', profileError.message);
     }
 
+    const { data: studentCounts, error: studentCountsError } = await supabase
+      .from('student_counts')
+      .select('date, students')
+      .eq('user_id', user.id)
+      .order('date', { ascending: true });
+
+    if (studentCountsError) {
+      console.warn('Student counts fetch warning:', studentCountsError.message);
+    }
+
     const processedEmissions = (emissions as EmissionRow[]).map((emission) => {
       const totalEmissions = toNumber(
         emission.co2_equivalent ??
@@ -237,6 +265,23 @@ export async function GET(request: NextRequest) {
       parsed_date: new Date(emission.date || emission.created_at || ''),
     }));
 
+    const sortedStudentCounts = ((studentCounts || []) as StudentCountRow[])
+      .map((entry) => ({
+        date: entry.date || '',
+        students: toNumber(entry.students),
+      }))
+      .filter((entry) => entry.date)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const getStudentCountForMonth = (monthStart: Date) => {
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getTime();
+      const latestForMonth = sortedStudentCounts
+        .filter((entry) => new Date(entry.date).getTime() <= monthEnd)
+        .at(-1);
+
+      return latestForMonth?.students || sortedStudentCounts.at(-1)?.students || 0;
+    };
+
     const sumEmissionsForDateRange = (from: Date, to?: Date) =>
       datedEmissions
         .filter((entry) => {
@@ -274,6 +319,14 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.emissions - a.emissions)
       .slice(0, 5);
 
+    const categoryData = Array.from(activityMap.entries())
+      .map(([category, emissionsTotal]) => ({
+        name: category,
+        value: round2(emissionsTotal),
+        percentage: totalEmissions > 0 ? round2((emissionsTotal / totalEmissions) * 100) : 0,
+      }))
+      .sort((a, b) => b.value - a.value);
+
     const forecastResult = buildEmissionForecast(
       datedEmissions.map((entry) => ({
         date: entry.record_date,
@@ -300,6 +353,72 @@ export async function GET(request: NextRequest) {
       ...item,
       percent: totalEmissions > 0 ? round2((item.emissions / totalEmissions) * 100) : 0,
     }));
+
+    const monthlyMap = new Map<string, {
+      monthStart: Date;
+      total: number;
+      scope1: number;
+      scope2: number;
+      scope3: number;
+      count: number;
+    }>();
+
+    datedEmissions.forEach((entry) => {
+      if (Number.isNaN(entry.parsed_date.getTime())) return;
+
+      const monthStart = new Date(entry.parsed_date.getFullYear(), entry.parsed_date.getMonth(), 1);
+      const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
+      const current = monthlyMap.get(monthKey) || {
+        monthStart,
+        total: 0,
+        scope1: 0,
+        scope2: 0,
+        scope3: 0,
+        count: 0,
+      };
+
+      current.total += entry.total_emissions;
+      current.count += 1;
+
+      if (entry.scope === 1) current.scope1 += entry.total_emissions;
+      if (entry.scope === 2) current.scope2 += entry.total_emissions;
+      if (entry.scope === 3) current.scope3 += entry.total_emissions;
+
+      monthlyMap.set(monthKey, current);
+    });
+
+    const monthlyTrend = Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([monthKey, data]) => {
+        const students = getStudentCountForMonth(data.monthStart);
+        const total = round2(data.total);
+
+        return {
+          monthKey,
+          month: MONTH_LABEL_FORMATTER.format(data.monthStart),
+          total,
+          scope1: round2(data.scope1),
+          scope2: round2(data.scope2),
+          scope3: round2(data.scope3),
+          count: data.count,
+          students,
+          intensity: students > 0 ? Number(((data.total / 1000) / students).toFixed(6)) : null,
+          average: data.count > 0 ? round2(data.total / data.count) : 0,
+        };
+      });
+
+    const latestStudentCount = sortedStudentCounts.at(-1)?.students || 0;
+    const totalTco2e = totalEmissions / 1000;
+    const overallIntensity =
+      latestStudentCount > 0 ? Number((totalTco2e / latestStudentCount).toFixed(6)) : 0;
+
+    const scenario = buildScenarioAnalysis({
+      forecast: forecastResult.forecast,
+      scope1: scope1Totals.mtco2e,
+      scope2: scope2Totals.mtco2e,
+      scope3: scope3Totals.mtco2e,
+      inputs: DEFAULT_SCENARIO_INPUTS,
+    });
 
     console.log('Scope totals:', {
       scope1Emissions: scope1Totals.mtco2e,
@@ -362,6 +481,40 @@ export async function GET(request: NextRequest) {
         })),
         top_sources: topSources,
         scope_breakdown: scopeBreakdown,
+        scenario_inputs: DEFAULT_SCENARIO_INPUTS,
+        scenario: {
+          annualBaselineEmissions: round2(scenario.annualBaselineEmissions),
+          annualScenarioEmissions: round2(scenario.annualScenarioEmissions),
+          annualAvoidedEmissions: round2(scenario.annualAvoidedEmissions),
+          annualReductionPercent: round2(scenario.annualReductionPercent),
+          baselineCarbonTaxCost: round2(scenario.baselineCarbonTaxCost),
+          scenarioCarbonTaxCost: round2(scenario.scenarioCarbonTaxCost),
+          carbonTaxSavings: round2(scenario.carbonTaxSavings),
+          chart: scenario.chart.map((point) => ({
+            month: point.month,
+            baselineEmissions: round2(point.baselineEmissions),
+            scenarioEmissions: round2(point.scenarioEmissions),
+          })),
+          strategies: scenario.strategies.map((strategy) => ({
+            ...strategy,
+            annualSavings: round2(strategy.annualSavings),
+            remainingOpportunity: round2(strategy.remainingOpportunity),
+          })),
+        },
+        analytics: {
+          total_entries: processedEmissions.length,
+          latest_student_count: latestStudentCount,
+          per_student_tco2e: overallIntensity,
+          average_per_entry: processedEmissions.length > 0
+            ? round2(totalEmissions / processedEmissions.length)
+            : 0,
+          months_tracked: monthlyTrend.length,
+          category_count: categoryData.length,
+          highest_category: categoryData[0] || null,
+          category_breakdown: categoryData,
+          monthly_trend: monthlyTrend,
+          intensity_trend: monthlyTrend.filter((point) => point.intensity !== null),
+        },
       },
     };
 

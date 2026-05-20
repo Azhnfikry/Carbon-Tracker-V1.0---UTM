@@ -9,6 +9,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Area,
+  AreaChart,
+  Legend,
   Line,
   LineChart,
   Pie,
@@ -18,7 +21,25 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { AlertCircle, BarChart3, Download, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  Calendar,
+  Car,
+  CheckCircle2,
+  Download,
+  Factory,
+  Lightbulb,
+  Receipt,
+  SlidersHorizontal,
+  SunMedium,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  Zap,
+} from 'lucide-react';
 
 type CompanyInfo = {
   name?: string;
@@ -61,6 +82,64 @@ type OutlookData = {
   forecast_chart: ForecastChartPoint[];
   top_sources: Array<{ activity: string; emissions: number; percent: number }>;
   scope_breakdown: Array<{ scope: number; name: string; emissions: number; percent: number }>;
+  scenario_inputs: {
+    solarAdoptionPercent: number;
+    evFleetPercent: number;
+    supplierSwitchPercent: number;
+    carbonTaxRate: number;
+  };
+  scenario: {
+    annualBaselineEmissions: number;
+    annualScenarioEmissions: number;
+    annualAvoidedEmissions: number;
+    annualReductionPercent: number;
+    baselineCarbonTaxCost: number;
+    scenarioCarbonTaxCost: number;
+    carbonTaxSavings: number;
+    chart: Array<{ month: string; baselineEmissions: number; scenarioEmissions: number }>;
+    strategies: Array<{
+      id: string;
+      title: string;
+      priority: 'high' | 'medium' | 'low';
+      annualSavings: number;
+      remainingOpportunity: number;
+      summary: string;
+    }>;
+  };
+  analytics: {
+    total_entries: number;
+    latest_student_count: number;
+    per_student_tco2e: number;
+    average_per_entry: number;
+    months_tracked: number;
+    category_count: number;
+    highest_category: { name: string; value: number; percentage: number } | null;
+    category_breakdown: Array<{ name: string; value: number; percentage: number }>;
+    monthly_trend: Array<{
+      monthKey: string;
+      month: string;
+      total: number;
+      scope1: number;
+      scope2: number;
+      scope3: number;
+      count: number;
+      students: number;
+      intensity: number | null;
+      average: number;
+    }>;
+    intensity_trend: Array<{
+      monthKey: string;
+      month: string;
+      total: number;
+      scope1: number;
+      scope2: number;
+      scope3: number;
+      count: number;
+      students: number;
+      intensity: number | null;
+      average: number;
+    }>;
+  };
 };
 
 type ReportData = {
@@ -394,6 +473,40 @@ export function EmissionReport() {
     2: '#d97706',
     3: '#2563eb',
   };
+
+  const priorityStyles = {
+    high: 'border-red-600 bg-red-50 text-red-800 dark:bg-red-950/20 dark:text-red-200',
+    medium: 'border-amber-600 bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:text-amber-200',
+    low: 'border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-200',
+  } as const;
+
+  const scenarioControls = outlook
+    ? [
+        {
+          label: 'Solar adoption',
+          icon: SunMedium,
+          value: `${outlook.scenario_inputs.solarAdoptionPercent}%`,
+        },
+        {
+          label: 'EV fleet transition',
+          icon: Car,
+          value: `${outlook.scenario_inputs.evFleetPercent}%`,
+        },
+        {
+          label: 'Supplier switch',
+          icon: Factory,
+          value: `${outlook.scenario_inputs.supplierSwitchPercent}%`,
+        },
+        {
+          label: 'Carbon tax',
+          icon: Receipt,
+          value: `RM ${outlook.scenario_inputs.carbonTaxRate}/tCO2e`,
+        },
+      ]
+    : [];
+
+  const topScenarioStrategy = outlook?.scenario.strategies[0];
+  const nextBestStrategy = outlook?.scenario.strategies[1];
 
   return (
     <div className="space-y-6">
@@ -776,10 +889,14 @@ export function EmissionReport() {
             </div>
 
             <Tabs defaultValue="forecast" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="forecast" className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
                   Forecast
+                </TabsTrigger>
+                <TabsTrigger value="scenario" className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Scenario
                 </TabsTrigger>
                 <TabsTrigger value="sources" className="flex items-center gap-2">
                   <Target className="h-4 w-4" />
@@ -788,6 +905,10 @@ export function EmissionReport() {
                 <TabsTrigger value="scopes" className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
                   Scope Mix
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Analytics
                 </TabsTrigger>
               </TabsList>
 
@@ -820,6 +941,139 @@ export function EmissionReport() {
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="scenario" className="mt-4 space-y-4">
+                <div className="grid grid-cols-4 gap-3">
+                  {scenarioControls.map((control) => {
+                    const Icon = control.icon;
+
+                    return (
+                      <div key={control.label} className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-3">
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-slate-700 dark:text-slate-300" />
+                          <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">{control.label}</p>
+                        </div>
+                        <p className="mt-2 text-lg font-bold text-gray-900 dark:text-white">{control.value}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-700 dark:bg-emerald-950/20">
+                    <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Baseline 12 Months</p>
+                    <p className="mt-2 text-2xl font-bold text-emerald-900 dark:text-emerald-200">
+                      {formatCompactNumber(outlook.scenario.annualBaselineEmissions)}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">kg CO2e</p>
+                  </div>
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-700 dark:bg-green-950/20">
+                    <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Scenario Outcome</p>
+                    <p className="mt-2 text-2xl font-bold text-green-900 dark:text-green-200">
+                      {formatCompactNumber(outlook.scenario.annualScenarioEmissions)}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">kg CO2e</p>
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-950/20">
+                    <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Avoided Emissions</p>
+                    <p className="mt-2 text-2xl font-bold text-blue-900 dark:text-blue-200">
+                      {formatCompactNumber(outlook.scenario.annualAvoidedEmissions)}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {outlook.scenario.annualReductionPercent.toFixed(1)}% reduction
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/20">
+                    <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Tax Exposure</p>
+                    <p className="mt-2 text-2xl font-bold text-amber-900 dark:text-amber-200">
+                      RM {formatCompactNumber(outlook.scenario.scenarioCarbonTaxCost)}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      RM {formatCompactNumber(outlook.scenario.carbonTaxSavings)} avoided
+                    </p>
+                  </div>
+                </div>
+
+                <div className="h-80 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={outlook.scenario.chart} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
+                      <Legend />
+                      <Line type="monotone" dataKey="baselineEmissions" name="Baseline forecast" stroke="#64748b" strokeWidth={3} dot={false} />
+                      <Line type="monotone" dataKey="scenarioEmissions" name="Scenario outcome" stroke="#16a34a" strokeWidth={3} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <h3 className="mb-3 text-sm font-bold uppercase text-gray-900 dark:text-white">Scenario-Based Reduction Strategy</h3>
+                    <div className="space-y-3">
+                      {outlook.scenario.strategies.map((strategy) => (
+                        <div key={strategy.id} className={`rounded-lg border-l-4 p-4 ${priorityStyles[strategy.priority]}`}>
+                          <div className="mb-2 flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-semibold">{strategy.title}</p>
+                              <p className="mt-1 text-xs text-gray-700 dark:text-gray-300">{strategy.summary}</p>
+                            </div>
+                            <span className="rounded bg-white/70 px-2 py-1 text-xs font-bold dark:bg-slate-900/70">
+                              {strategy.priority.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="text-sm font-medium">Current gain: {formatCompactNumber(strategy.annualSavings)} kg CO2e</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                              <Target className="h-4 w-4" />
+                              <span className="text-sm font-medium">Remaining opportunity: {formatCompactNumber(strategy.remainingOpportunity)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-3 text-sm font-bold uppercase text-gray-900 dark:text-white">Decision Support</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="flex items-start gap-3 rounded-lg bg-green-50 p-3 dark:bg-green-950/20">
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">Best lever right now</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {topScenarioStrategy?.title || 'Review scope mix'} has the biggest remaining impact under this scenario.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
+                        <Zap className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">Next best follow-up</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {nextBestStrategy
+                              ? `${nextBestStrategy.title} is the next strongest move.`
+                              : 'Add more data to rank follow-up actions.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/20">
+                        <TrendingDown className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">Financial resilience</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            Modeled carbon tax exposure is RM {formatCompactNumber(outlook.scenario.scenarioCarbonTaxCost)} over 12 months.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -894,6 +1148,97 @@ export function EmissionReport() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="analytics" className="mt-4 space-y-4">
+                <div>
+                  <h3 className="mb-3 text-sm font-bold uppercase text-gray-900 dark:text-white">Analytics & Insights</h3>
+                  <div className="grid grid-cols-5 gap-3">
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Total Entries</p>
+                        <BarChart3 className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{outlook.analytics.total_entries}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{outlook.analytics.category_count} categories</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Per Student</p>
+                        <Users className="h-4 w-4 text-rose-600" />
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{outlook.analytics.per_student_tco2e.toFixed(4)}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">tCO2e/student</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Students</p>
+                        <Users className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatCompactNumber(outlook.analytics.latest_student_count)}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">latest count</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Avg Entry</p>
+                        <Calendar className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatCompactNumber(outlook.analytics.average_per_entry)}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">kg CO2e</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Highest Category</p>
+                        <Lightbulb className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <p className="mt-2 text-lg font-bold text-gray-900 dark:text-white">{outlook.analytics.highest_category?.name || 'N/A'}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {outlook.analytics.highest_category?.percentage.toFixed(1) || '0.0'}% of total
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-80 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={outlook.analytics.monthly_trend} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
+                      <Legend />
+                      <Area type="monotone" dataKey="scope1" name="Scope 1" stackId="1" stroke="#dc2626" fill="#fecaca" />
+                      <Area type="monotone" dataKey="scope2" name="Scope 2" stackId="1" stroke="#d97706" fill="#fde68a" />
+                      <Area type="monotone" dataKey="scope3" name="Scope 3" stackId="1" stroke="#2563eb" fill="#bfdbfe" />
+                      <Line type="monotone" dataKey="total" name="Total Emissions" stroke="#0f172a" strokeWidth={2} dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-72 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={outlook.analytics.intensity_trend} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="month" />
+                        <YAxis tickFormatter={(value) => `${Number(value).toFixed(4)}`} />
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(6)} tCO2e/student`} />
+                        <Line type="monotone" dataKey="intensity" name="tCO2e/student" stroke="#14b8a6" strokeWidth={3} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="h-72 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={outlook.analytics.category_breakdown.slice(0, 8)} margin={{ top: 8, right: 16, left: 4, bottom: 48 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={72} />
+                        <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
+                        <Bar dataKey="value" name="Emissions" fill="#0f766e" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               </TabsContent>
