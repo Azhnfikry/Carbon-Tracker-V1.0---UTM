@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Bar,
   BarChart,
@@ -22,7 +21,6 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  Activity,
   AlertCircle,
   BarChart3,
   Calendar,
@@ -425,9 +423,6 @@ export function EmissionReport() {
             .mt-1 { margin-top: 4px; }
             .rounded-full { border-radius: 9999px; }
             .italic { font-style: italic; }
-            [hidden] { display: block !important; }
-            [data-state="inactive"] { display: block !important; }
-            [role="tablist"] { display: none !important; }
             
             .bg-gradient-to-r { background: linear-gradient(to right, #f0fdf4, #dbeafe); }
             
@@ -940,31 +935,12 @@ export function EmissionReport() {
               </div>
             </div>
 
-            <Tabs defaultValue="forecast" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="forecast" className="flex items-center gap-2">
+            <div className="space-y-6">
+              <section className="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-gray-900 dark:text-white">
                   <TrendingUp className="h-4 w-4" />
                   Forecast
-                </TabsTrigger>
-                <TabsTrigger value="scenario" className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Scenario
-                </TabsTrigger>
-                <TabsTrigger value="sources" className="flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Hotspots
-                </TabsTrigger>
-                <TabsTrigger value="scopes" className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Scope Mix
-                </TabsTrigger>
-                <TabsTrigger value="analytics" className="flex items-center gap-2">
-                  <Activity className="h-4 w-4" />
-                  Analytics
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="forecast" forceMount className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                </h3>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={outlook.forecast_chart} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
@@ -994,9 +970,13 @@ export function EmissionReport() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-              </TabsContent>
+              </section>
 
-              <TabsContent value="scenario" forceMount className="mt-4 space-y-4">
+              <section className="space-y-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-gray-900 dark:text-white">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Scenario Engine
+                </h3>
                 <div className="grid grid-cols-4 gap-3">
                   {scenarioControls.map((control) => {
                     const Icon = control.icon;
@@ -1127,9 +1107,13 @@ export function EmissionReport() {
                     </div>
                   </div>
                 </div>
-              </TabsContent>
+              </section>
 
-              <TabsContent value="sources" forceMount className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <section className="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-gray-900 dark:text-white">
+                  <Target className="h-4 w-4" />
+                  Top Emission Sources
+                </h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1156,9 +1140,13 @@ export function EmissionReport() {
                     ))}
                   </div>
                 </div>
-              </TabsContent>
+              </section>
 
-              <TabsContent value="scopes" forceMount className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <section className="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-gray-900 dark:text-white">
+                  <BarChart3 className="h-4 w-4" />
+                  Scope Emissions
+                </h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1202,9 +1190,9 @@ export function EmissionReport() {
                     ))}
                   </div>
                 </div>
-              </TabsContent>
+              </section>
 
-              <TabsContent value="analytics" forceMount className="mt-4 space-y-4">
+              <section className="space-y-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
                 <div>
                   <h3 className="mb-3 text-sm font-bold uppercase text-gray-900 dark:text-white">Analytics & Insights</h3>
                   <div className="grid grid-cols-5 gap-3">
@@ -1293,8 +1281,8 @@ export function EmissionReport() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </section>
+            </div>
           </div>
         )}
 
