@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { buildEmissionForecast } from '@/lib/emission-forecast';
 
 type EmissionRow = {
   scope: number | string | null;
@@ -12,6 +13,9 @@ type EmissionRow = {
   n2o?: number | string | null;
   description?: string | null;
   activity_type?: string | null;
+  category?: string | null;
+  date?: string | null;
+  created_at?: string | null;
 };
 
 type ScopeGasTotals = {
@@ -220,6 +224,83 @@ export async function GET(request: NextRequest) {
       scope1Totals.mtco2e + scope2Totals.mtco2e + scope3Totals.mtco2e
     );
 
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentYearStart = new Date(now.getFullYear(), 0, 1);
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const lastYearEnd = new Date(now.getFullYear(), 0, 1);
+
+    const datedEmissions = processedEmissions.map((emission) => ({
+      ...emission,
+      record_date: emission.date || emission.created_at || '',
+      parsed_date: new Date(emission.date || emission.created_at || ''),
+    }));
+
+    const sumEmissionsForDateRange = (from: Date, to?: Date) =>
+      datedEmissions
+        .filter((entry) => {
+          if (Number.isNaN(entry.parsed_date.getTime())) return false;
+          return entry.parsed_date >= from && (!to || entry.parsed_date < to);
+        })
+        .reduce((sum, entry) => sum + entry.total_emissions, 0);
+
+    const currentMonthEmissions = sumEmissionsForDateRange(thisMonth);
+    const lastMonthEmissions = sumEmissionsForDateRange(lastMonth, thisMonth);
+    const currentYearEmissions = sumEmissionsForDateRange(currentYearStart);
+    const lastYearEmissions = sumEmissionsForDateRange(lastYearStart, lastYearEnd);
+
+    const monthOverMonthChange =
+      lastMonthEmissions > 0
+        ? ((currentMonthEmissions - lastMonthEmissions) / lastMonthEmissions) * 100
+        : 0;
+    const yearOverYearGrowth =
+      lastYearEmissions > 0
+        ? ((currentYearEmissions - lastYearEmissions) / lastYearEmissions) * 100
+        : 0;
+
+    const activityMap = new Map<string, number>();
+    processedEmissions.forEach((entry) => {
+      const label = entry.activity_type || entry.category || 'Uncategorized';
+      activityMap.set(label, (activityMap.get(label) || 0) + entry.total_emissions);
+    });
+
+    const topSources = Array.from(activityMap.entries())
+      .map(([activity, emissionsTotal]) => ({
+        activity,
+        emissions: round2(emissionsTotal),
+        percent: totalEmissions > 0 ? round2((emissionsTotal / totalEmissions) * 100) : 0,
+      }))
+      .sort((a, b) => b.emissions - a.emissions)
+      .slice(0, 5);
+
+    const forecastResult = buildEmissionForecast(
+      datedEmissions.map((entry) => ({
+        date: entry.record_date,
+        co2_equivalent: entry.total_emissions,
+      })),
+      {
+        historyMonths: 6,
+        forecastMonths: 12,
+      }
+    );
+
+    const forecastChart = [...forecastResult.history, ...forecastResult.forecast].map((point) => ({
+      ...point,
+      historicalEmissions: point.type === 'historical' ? round2(point.emissions) : null,
+      predictedEmissions: point.type === 'predicted' ? round2(point.emissions) : null,
+      emissions: round2(point.emissions),
+    }));
+
+    const scopeBreakdown = [
+      { scope: 1, name: 'Scope 1', emissions: scope1Totals.mtco2e },
+      { scope: 2, name: 'Scope 2', emissions: scope2Totals.mtco2e },
+      { scope: 3, name: 'Scope 3', emissions: scope3Totals.mtco2e },
+    ].map((item) => ({
+      ...item,
+      percent: totalEmissions > 0 ? round2((item.emissions / totalEmissions) * 100) : 0,
+    }));
+
     console.log('Scope totals:', {
       scope1Emissions: scope1Totals.mtco2e,
       scope2Emissions: scope2Totals.mtco2e,
@@ -264,6 +345,23 @@ export async function GET(request: NextRequest) {
         scope2: scope2Totals,
         scope3: scope3Totals,
         total: totalEmissions,
+      },
+      outlook: {
+        current_month_emissions: round2(currentMonthEmissions),
+        last_month_emissions: round2(lastMonthEmissions),
+        month_over_month_change: round2(monthOverMonthChange),
+        year_over_year_growth: round2(yearOverYearGrowth),
+        projected_next_month: round2(forecastResult.projectedNextMonth),
+        projected_quarter_total: round2(forecastResult.projectedQuarterTotal),
+        projected_trend_percent: round2(forecastResult.trendPercent),
+        model_confidence: forecastResult.modelConfidence,
+        forecast_chart: forecastChart,
+        annual_forecast: forecastResult.forecast.map((point) => ({
+          ...point,
+          emissions: round2(point.emissions),
+        })),
+        top_sources: topSources,
+        scope_breakdown: scopeBreakdown,
       },
     };
 

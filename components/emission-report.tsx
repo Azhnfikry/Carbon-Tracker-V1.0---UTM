@@ -3,7 +3,22 @@
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Download } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { AlertCircle, BarChart3, Download, Target, TrendingDown, TrendingUp } from 'lucide-react';
 
 type CompanyInfo = {
   name?: string;
@@ -23,6 +38,29 @@ type EmissionByGas = {
   hfcs_mt: number;
   pfcs_mt: number;
   sf6_mt: number;
+};
+
+type ForecastChartPoint = {
+  monthKey: string;
+  label: string;
+  emissions: number;
+  type: 'historical' | 'predicted';
+  historicalEmissions: number | null;
+  predictedEmissions: number | null;
+};
+
+type OutlookData = {
+  current_month_emissions: number;
+  last_month_emissions: number;
+  month_over_month_change: number;
+  year_over_year_growth: number;
+  projected_next_month: number;
+  projected_quarter_total: number;
+  projected_trend_percent: number;
+  model_confidence: 'low' | 'medium' | 'high';
+  forecast_chart: ForecastChartPoint[];
+  top_sources: Array<{ activity: string; emissions: number; percent: number }>;
+  scope_breakdown: Array<{ scope: number; name: string; emissions: number; percent: number }>;
 };
 
 type ReportData = {
@@ -48,6 +86,7 @@ type ReportData = {
     scope3?: EmissionByGas;
     total?: number;
   };
+  outlook?: OutlookData;
 };
 
 export function EmissionReport() {
@@ -135,6 +174,7 @@ export function EmissionReport() {
           },
           total: data.total_emissions || 0,
         },
+        outlook: data.outlook,
       };
 
       setReportData(normalizedData);
@@ -332,6 +372,27 @@ export function EmissionReport() {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
+  };
+
+  const formatCompactNumber = (value: number | undefined): string => {
+    if (!value && value !== 0) return 'N/A';
+    return Number(value).toLocaleString('en-US', {
+      maximumFractionDigits: 0,
+    });
+  };
+
+  const outlook = reportData.outlook;
+  const confidenceLabel =
+    outlook?.model_confidence === 'high'
+      ? 'High confidence'
+      : outlook?.model_confidence === 'medium'
+        ? 'Moderate confidence'
+        : 'Early estimate';
+
+  const scopeColors: Record<number, string> = {
+    1: '#dc2626',
+    2: '#d97706',
+    3: '#2563eb',
   };
 
   return (
@@ -660,10 +721,190 @@ export function EmissionReport() {
           </div>
         )}
 
-        {/* SECTION 4: Calculation Methodology */}
+        {/* SECTION 4: Interactive Outlook & Analytics */}
+        {outlook && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white border-b-3 border-green-600 pb-3 mb-6">
+              4. EMISSIONS OUTLOOK & ANALYTICAL DASHBOARD
+            </h2>
+
+            <div className="grid grid-cols-4 gap-3 mb-6">
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold">Next Month Forecast</p>
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-2">
+                  {formatCompactNumber(outlook.projected_next_month)}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kg CO2e</p>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold">Next 3 Months</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-2">
+                  {formatCompactNumber(outlook.projected_quarter_total)}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kg CO2e forecast</p>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold">Forecast Signal</p>
+                <div className="flex items-center gap-2 mt-2">
+                  {outlook.projected_trend_percent <= 0 ? (
+                    <TrendingDown className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <TrendingUp className="h-5 w-5 text-red-600" />
+                  )}
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {Math.abs(outlook.projected_trend_percent).toFixed(1)}%
+                  </p>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{confidenceLabel}</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold">Year-over-Year</p>
+                <div className="flex items-center gap-2 mt-2">
+                  {outlook.year_over_year_growth <= 0 ? (
+                    <TrendingDown className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <TrendingUp className="h-5 w-5 text-red-600" />
+                  )}
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {Math.abs(outlook.year_over_year_growth).toFixed(1)}%
+                  </p>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {outlook.year_over_year_growth <= 0 ? 'Improvement' : 'Growth'}
+                </p>
+              </div>
+            </div>
+
+            <Tabs defaultValue="forecast" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="forecast" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Forecast
+                </TabsTrigger>
+                <TabsTrigger value="sources" className="flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Hotspots
+                </TabsTrigger>
+                <TabsTrigger value="scopes" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Scope Mix
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="forecast" className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={outlook.forecast_chart} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="label" />
+                      <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+                      <Tooltip formatter={(value) => value === null ? '' : `${Number(value).toFixed(0)} kg CO2e`} />
+                      <Line
+                        type="monotone"
+                        dataKey="historicalEmissions"
+                        name="Historical"
+                        stroke="#0f766e"
+                        strokeWidth={3}
+                        dot={{ r: 4 }}
+                        connectNulls={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="predictedEmissions"
+                        name="12-month forecast"
+                        stroke="#ea580c"
+                        strokeWidth={3}
+                        strokeDasharray="6 6"
+                        dot={{ r: 4 }}
+                        connectNulls={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="sources" className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={outlook.top_sources} layout="vertical" margin={{ top: 8, right: 16, left: 48, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis type="number" tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+                        <YAxis type="category" dataKey="activity" width={120} />
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
+                        <Bar dataKey="emissions" name="Emissions" fill="#dc2626" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-3">
+                    {outlook.top_sources.map((source) => (
+                      <div key={source.activity} className="rounded border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">{source.activity}</p>
+                          <p className="text-sm font-bold text-red-600 dark:text-red-400">{source.percent.toFixed(1)}%</p>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          {formatCompactNumber(source.emissions)} kg CO2e of total emissions
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="scopes" className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={outlook.scope_breakdown}
+                          dataKey="emissions"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={110}
+                          label={({ name, percent }) => `${name}: ${Number(percent).toFixed(1)}%`}
+                        >
+                          {outlook.scope_breakdown.map((scope) => (
+                            <Cell key={scope.scope} fill={scopeColors[scope.scope] || '#64748b'} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-4">
+                    {outlook.scope_breakdown.map((scope) => (
+                      <div key={scope.scope}>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">{scope.name}</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {formatCompactNumber(scope.emissions)} kg CO2e ({scope.percent.toFixed(1)}%)
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-slate-800">
+                          <div
+                            className="h-2 rounded-full"
+                            style={{
+                              width: `${scope.percent}%`,
+                              backgroundColor: scopeColors[scope.scope] || '#64748b',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        {/* SECTION 5: Calculation Methodology */}
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white border-b-3 border-green-600 pb-3 mb-6">
-            4. METHODOLOGY & STANDARDS
+            5. METHODOLOGY & STANDARDS
           </h2>
 
           <div className="grid grid-cols-2 gap-6">
