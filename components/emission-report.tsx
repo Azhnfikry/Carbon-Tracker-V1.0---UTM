@@ -302,6 +302,7 @@ export function EmissionReport() {
             .space-y-6 > * + * { margin-top: 1.5rem; }
             .space-y-8 > * + * { margin-top: 2rem; }
             .space-y-4 > * + * { margin-top: 1rem; }
+            .space-y-3 > * + * { margin-top: 0.75rem; }
             
             h1 { font-size: 36px; font-weight: bold; margin-bottom: 10px; }
             h2 { font-size: 24px; font-weight: bold; border-bottom: 4px solid #16a34a; padding-bottom: 12px; margin-bottom: 24px; }
@@ -376,6 +377,57 @@ export function EmissionReport() {
             .items-start { align-items: flex-start; }
             
             .text-center { text-align: center; }
+            .justify-between { justify-content: space-between; }
+            .items-center { align-items: center; }
+            .items-start { align-items: flex-start; }
+            .flex-shrink-0 { flex-shrink: 0; }
+            .w-full { width: 100%; }
+            .h-72 { height: 288px; }
+            .h-80 { height: 320px; }
+            .h-5 { height: 20px; }
+            .w-5 { width: 20px; }
+            .h-4 { height: 16px; }
+            .w-4 { width: 16px; }
+            .text-red-600 { color: #dc2626; }
+            .text-red-400 { color: #f87171; }
+            .text-amber-600 { color: #d97706; }
+            .text-amber-400 { color: #f59e0b; }
+            .text-blue-600 { color: #2563eb; }
+            .text-blue-400 { color: #60a5fa; }
+            .text-emerald-700 { color: #047857; }
+            .text-emerald-300 { color: #6ee7b7; }
+            .text-emerald-900 { color: #064e3b; }
+            .text-green-900 { color: #14532d; }
+            .text-blue-900 { color: #1e3a8a; }
+            .text-amber-900 { color: #78350f; }
+            .text-purple-600 { color: #9333ea; }
+            .bg-white { background: #ffffff; }
+            .bg-slate-50 { background: #f8fafc; }
+            .bg-slate-900 { background: #0f172a; }
+            .bg-emerald-50 { background: #ecfdf5; }
+            .bg-green-50 { background: #f0fdf4; }
+            .bg-blue-50 { background: #eff6ff; }
+            .bg-amber-50 { background: #fffbeb; }
+            .border-gray-200 { border-color: #e5e7eb; }
+            .border-slate-200 { border-color: #e2e8f0; }
+            .border-slate-700 { border-color: #334155; }
+            .border-emerald-200 { border-color: #a7f3d0; }
+            .border-green-200 { border-color: #bbf7d0; }
+            .border-blue-200 { border-color: #bfdbfe; }
+            .border-amber-200 { border-color: #fde68a; }
+            .border-l-4 { border-left-width: 4px; }
+            .border-red-600 { border-color: #dc2626; }
+            .border-amber-600 { border-color: #d97706; }
+            .border-blue-600 { border-color: #2563eb; }
+            .grid-cols-1 { grid-template-columns: 1fr; gap: 16px; }
+            .grid-cols-5 { grid-template-columns: repeat(5, 1fr); gap: 12px; }
+            .mt-0\.5 { margin-top: 2px; }
+            .mt-1 { margin-top: 4px; }
+            .rounded-full { border-radius: 9999px; }
+            .italic { font-style: italic; }
+            [hidden] { display: block !important; }
+            [data-state="inactive"] { display: block !important; }
+            [role="tablist"] { display: none !important; }
             
             .bg-gradient-to-r { background: linear-gradient(to right, #f0fdf4, #dbeafe); }
             
@@ -912,7 +964,7 @@ export function EmissionReport() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="forecast" className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <TabsContent value="forecast" forceMount className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={outlook.forecast_chart} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
@@ -944,7 +996,7 @@ export function EmissionReport() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="scenario" className="mt-4 space-y-4">
+              <TabsContent value="scenario" forceMount className="mt-4 space-y-4">
                 <div className="grid grid-cols-4 gap-3">
                   {scenarioControls.map((control) => {
                     const Icon = control.icon;
@@ -1077,7 +1129,7 @@ export function EmissionReport() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="sources" className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <TabsContent value="sources" forceMount className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1106,7 +1158,7 @@ export function EmissionReport() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="scopes" className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <TabsContent value="scopes" forceMount className="mt-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1152,7 +1204,7 @@ export function EmissionReport() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="analytics" className="mt-4 space-y-4">
+              <TabsContent value="analytics" forceMount className="mt-4 space-y-4">
                 <div>
                   <h3 className="mb-3 text-sm font-bold uppercase text-gray-900 dark:text-white">Analytics & Insights</h3>
                   <div className="grid grid-cols-5 gap-3">
