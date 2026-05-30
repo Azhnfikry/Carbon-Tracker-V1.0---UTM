@@ -147,6 +147,7 @@ type ReportData = {
   company_description?: string;
   business_description?: string;
   user_name?: string;
+  user_job_title?: string;
   user_email?: string;
   
   // Simplified totals (for backward compatibility)
@@ -211,6 +212,7 @@ export function EmissionReport() {
         company_description: data.company_description || data.company_info?.description || '',
         business_description: data.business_description || data.company_info?.business_description || '',
         user_name: data.generated_by || data.user_name || 'Unknown User',
+        user_job_title: data.report_contact_job_title || data.user_job_title || '',
         user_email: data.report_contact_email || data.user_email || 'N/A',
         
         // Support both old and new formats
@@ -592,6 +594,7 @@ export function EmissionReport() {
             <div className="col-span-2">
               <p className="text-xs uppercase font-semibold">Prepared By</p>
               <p>{reportData.user_name}</p>
+              {reportData.user_job_title && <p className="text-xs">{reportData.user_job_title}</p>}
               <p className="text-xs">{reportData.user_email}</p>
             </div>
           </div>

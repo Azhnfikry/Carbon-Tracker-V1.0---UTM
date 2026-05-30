@@ -3,6 +3,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
+  job_title text,
+  email text,
   company_name text,
   industry text,
   created_at timestamptz not null default now(),
@@ -16,15 +18,17 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, company_name)
+  insert into public.profiles (id, full_name, email, company_name)
   values (
     new.id,
     new.raw_user_meta_data ->> 'full_name',
+    new.email,
     new.raw_user_meta_data ->> 'company_name'
   )
   on conflict (id) do update
   set
     full_name = excluded.full_name,
+    email = excluded.email,
     company_name = excluded.company_name,
     updated_at = now();
 

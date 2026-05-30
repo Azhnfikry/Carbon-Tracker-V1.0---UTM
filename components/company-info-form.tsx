@@ -94,6 +94,12 @@ interface CompanyInfo {
   updated_at?: string;
 }
 
+interface UserInfo {
+  full_name: string;
+  job_title: string;
+  email: string;
+}
+
 interface CompanyInfoFormProps {
   user: User | null;
 }
@@ -106,6 +112,11 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
   const [selectedScope3, setSelectedScope3] = useState<Set<string>>(new Set());
   const [excludedActivities, setExcludedActivities] = useState<Map<string, string>>(new Map());
   const [financialPeriods, setFinancialPeriods] = useState<FinancialReportingPeriod[]>([]);
+  const [userInfo, setUserInfo] = useState<UserInfo>({
+    full_name: '',
+    job_title: '',
+    email: user?.email || '',
+  });
 
   const [formData, setFormData] = useState<CompanyInfo>({
     user_id: user?.id || '',
@@ -268,16 +279,42 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('company_info')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+        const [companyInfoResult, profileResult] = await Promise.all([
+          supabase
+            .from('company_info')
+            .select('*')
+            .eq('user_id', user.id)
+            .single(),
+          supabase
+            .from('profiles')
+            .select('full_name, job_title, email')
+            .eq('id', user.id)
+            .single(),
+        ]);
+
+        const { data, error } = companyInfoResult;
 
         // PGRST116 = no rows returned (this is expected for new users)
         if (error && error.code !== 'PGRST116') {
           console.warn('Warning loading company info:', error);
           // Don't throw - just continue with empty form
+        }
+
+        if (profileResult.error && profileResult.error.code !== 'PGRST116') {
+          console.warn('Warning loading user profile:', profileResult.error);
+        }
+
+        if (profileResult.data) {
+          setUserInfo({
+            full_name: profileResult.data.full_name || '',
+            job_title: profileResult.data.job_title || '',
+            email: profileResult.data.email || user.email || '',
+          });
+        } else {
+          setUserInfo((prev) => ({
+            ...prev,
+            email: prev.email || user.email || '',
+          }));
         }
 
         if (data) {
@@ -308,6 +345,13 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     setFormData((prev) => ({
       ...prev,
       [field]: e.target.value,
+    }));
+  };
+
+  const handleUserInfoChange = (field: keyof UserInfo, value: string) => {
+    setUserInfo((prev) => ({
+      ...prev,
+      [field]: value,
     }));
   };
 
@@ -342,6 +386,23 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         user_id: user.id,
       };
 
+      const profileDataToSave = {
+        id: user.id,
+        full_name: userInfo.full_name,
+        job_title: userInfo.job_title,
+        email: userInfo.email || user.email || '',
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: profileSaveError } = await supabase
+        .from('profiles')
+        .upsert(profileDataToSave, { onConflict: 'id' });
+
+      if (profileSaveError) {
+        console.error('Profile save error:', profileSaveError);
+        throw profileSaveError;
+      }
+
       if (formData.id) {
         // Update existing
         const { error } = await supabase
@@ -354,7 +415,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
           console.error('Update error:', error);
           throw error;
         }
-        setMessage({ type: 'success', text: 'Company information updated successfully!' });
+        setMessage({ type: 'success', text: 'Basic information updated successfully!' });
       } else {
         // Insert new
         const { data, error } = await supabase
@@ -370,7 +431,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         if (data) {
           setFormData({ ...formData, id: data.id });
         }
-        setMessage({ type: 'success', text: 'Company information saved successfully!' });
+        setMessage({ type: 'success', text: 'Basic information saved successfully!' });
       }
 
       setTimeout(() => setMessage(null), 5000);
@@ -406,9 +467,9 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Company Information</h2>
+        <h2 className="text-2xl font-bold text-foreground">Basic Informations</h2>
         <p className="text-muted-foreground mt-2">
-          Provide descriptive information about your company for ESG reporting compliance
+          Provide user and company details for ESG reporting compliance
         </p>
       </div>
 
@@ -430,9 +491,45 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Company name and description</CardDescription>
+            <CardDescription>User, company, and report contact details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Name *</Label>
+                <Input
+                  id="full_name"
+                  placeholder="Enter your full name"
+                  value={userInfo.full_name}
+                  onChange={(e) => handleUserInfoChange('full_name', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="job_title">Job Title *</Label>
+                <Input
+                  id="job_title"
+                  placeholder="e.g., Sustainability Manager"
+                  value={userInfo.job_title}
+                  onChange={(e) => handleUserInfoChange('job_title', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile_email">Email *</Label>
+                <Input
+                  id="profile_email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={userInfo.email}
+                  onChange={(e) => handleUserInfoChange('email', e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="company_name">Company Name *</Label>
               <Input
@@ -836,7 +933,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         {/* Submit Button */}
         <div className="flex gap-3">
           <Button type="submit" disabled={isSaving} className="bg-green-600 hover:bg-green-700">
-            {isSaving ? 'Saving...' : 'Save Company Information'}
+            {isSaving ? 'Saving...' : 'Save Basic Informations'}
           </Button>
         </div>
 

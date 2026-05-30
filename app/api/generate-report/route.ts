@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('full_name, email')
+      .select('full_name, job_title, email')
       .eq('id', user.id)
       .single();
 
@@ -454,6 +454,7 @@ export async function GET(request: NextRequest) {
         base_year_rationale: companyInfo?.base_year_rationale || '',
       },
       user_name: profile?.full_name || 'User',
+      user_job_title: profile?.job_title || '',
       user_email: profile?.email || user.email,
       scope_1_total: scope1Totals.mtco2e,
       scope_2_total: scope2Totals.mtco2e,

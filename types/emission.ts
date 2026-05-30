@@ -52,6 +52,8 @@ export interface EmissionFactor {
 export interface Profile {
   id: string
   full_name?: string
+  job_title?: string
+  email?: string
   company_name?: string
   industry?: string
   created_at: string

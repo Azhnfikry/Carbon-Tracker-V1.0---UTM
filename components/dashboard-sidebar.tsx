@@ -17,7 +17,7 @@ export function DashboardSidebar({ activeTab, onTabChange, onLogout }: Dashboard
   const router = useRouter();
 
   const menuItems = [
-    { id: 'company-info', label: 'Company Info', icon: Building2 },
+    { id: 'company-info', label: 'Basic Informations', icon: Building2 },
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'add-entry', label: 'Add Entry', icon: Plus },
     { id: 'bulk-upload', label: 'Bulk Upload', icon: Upload },
