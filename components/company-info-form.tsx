@@ -100,10 +100,15 @@ interface CompanyInfo {
   user_id: string;
   company_name: string;
   company_description: string;
+  facility_count: string;
   facility_address_line_1: string;
   facility_address_line_2: string;
   facility_postcode: string;
   facility_state: string;
+  facility_2_address_line_1: string;
+  facility_2_address_line_2: string;
+  facility_2_postcode: string;
+  facility_2_state: string;
   consolidation_approach: string;
   business_description: string;
   reporting_period: string;
@@ -145,10 +150,15 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     user_id: user?.id || '',
     company_name: '',
     company_description: '',
+    facility_count: '1',
     facility_address_line_1: '',
     facility_address_line_2: '',
     facility_postcode: '',
     facility_state: '',
+    facility_2_address_line_1: '',
+    facility_2_address_line_2: '',
+    facility_2_postcode: '',
+    facility_2_state: '',
     consolidation_approach: 'equity-share',
     business_description: '',
     reporting_period: '',
@@ -348,6 +358,15 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
           const loadedFinancialPeriods = parseFinancialPeriods(data.financial_reporting_periods);
           setFormData({
             ...data,
+            facility_count: data.facility_count?.toString() === '2' ? '2' : '1',
+            facility_address_line_1: data.facility_address_line_1 || '',
+            facility_address_line_2: data.facility_address_line_2 || '',
+            facility_postcode: data.facility_postcode || '',
+            facility_state: data.facility_state || '',
+            facility_2_address_line_1: data.facility_2_address_line_1 || '',
+            facility_2_address_line_2: data.facility_2_address_line_2 || '',
+            facility_2_postcode: data.facility_2_postcode || '',
+            facility_2_state: data.facility_2_state || '',
             base_year: data.base_year?.toString() || new Date().getFullYear().toString(),
             financial_reporting_periods: data.financial_reporting_periods || '',
           });
@@ -401,10 +420,15 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
       const dataToSave = {
         company_name: formData.company_name,
         company_description: formData.company_description,
+        facility_count: formData.facility_count,
         facility_address_line_1: formData.facility_address_line_1,
         facility_address_line_2: formData.facility_address_line_2,
         facility_postcode: formData.facility_postcode,
         facility_state: formData.facility_state,
+        facility_2_address_line_1: formData.facility_count === '2' ? formData.facility_2_address_line_1 : '',
+        facility_2_address_line_2: formData.facility_count === '2' ? formData.facility_2_address_line_2 : '',
+        facility_2_postcode: formData.facility_count === '2' ? formData.facility_2_postcode : '',
+        facility_2_state: formData.facility_count === '2' ? formData.facility_2_state : '',
         consolidation_approach: formData.consolidation_approach,
         business_description: formData.business_description,
         reporting_period: formData.reporting_period,
@@ -588,8 +612,29 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
               <div>
                 <h3 className="text-base font-semibold text-foreground">Location of Facilities</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Provide the primary facility address used for this reporting boundary.
+                  Declare whether this reporting boundary covers one or two facilities.
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="facility_count">How many facilities? *</Label>
+                <Select
+                  value={formData.facility_count}
+                  onValueChange={(value) => handleSelectChange('facility_count', value)}
+                  required
+                >
+                  <SelectTrigger id="facility_count">
+                    <SelectValue placeholder="Select number of facilities" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 Facility</SelectItem>
+                    <SelectItem value="2">2 Facilities</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4 dark:border-slate-700">
+                <p className="text-sm font-semibold text-foreground">Facility 1</p>
               </div>
 
               <div className="space-y-2">
@@ -646,6 +691,67 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
                   </Select>
                 </div>
               </div>
+
+              {formData.facility_count === '2' && (
+                <div className="space-y-4 border-t border-gray-200 pt-4 dark:border-slate-700">
+                  <p className="text-sm font-semibold text-foreground">Facility 2</p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="facility_2_address_line_1">Address Line 1 *</Label>
+                    <Input
+                      id="facility_2_address_line_1"
+                      placeholder="Building name, street address"
+                      value={formData.facility_2_address_line_1}
+                      onChange={(e) => handleInputChange(e, 'facility_2_address_line_1')}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="facility_2_address_line_2">Address Line 2</Label>
+                    <Input
+                      id="facility_2_address_line_2"
+                      placeholder="Unit, floor, area, or additional address details"
+                      value={formData.facility_2_address_line_2}
+                      onChange={(e) => handleInputChange(e, 'facility_2_address_line_2')}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="facility_2_postcode">Postcode *</Label>
+                      <Input
+                        id="facility_2_postcode"
+                        inputMode="numeric"
+                        placeholder="e.g., 50450"
+                        value={formData.facility_2_postcode}
+                        onChange={(e) => handleInputChange(e, 'facility_2_postcode')}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="facility_2_state">State *</Label>
+                      <Select
+                        value={formData.facility_2_state}
+                        onValueChange={(value) => handleSelectChange('facility_2_state', value)}
+                        required
+                      >
+                        <SelectTrigger id="facility_2_state">
+                          <SelectValue placeholder="Select Malaysian state" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MALAYSIA_STATES.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

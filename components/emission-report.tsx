@@ -42,10 +42,15 @@ import {
 type CompanyInfo = {
   name?: string;
   description?: string;
+  facility_count?: string;
   facility_address_line_1?: string;
   facility_address_line_2?: string;
   facility_postcode?: string;
   facility_state?: string;
+  facility_2_address_line_1?: string;
+  facility_2_address_line_2?: string;
+  facility_2_postcode?: string;
+  facility_2_state?: string;
   consolidation_approach?: string;
   business_description?: string;
   reporting_period?: string;
@@ -624,16 +629,32 @@ export function EmissionReport() {
           {(reportData.company_info?.facility_address_line_1 || reportData.company_info?.facility_state) && (
             <div className="mb-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Location of Facilities</p>
-              <p className="text-gray-700 dark:text-gray-300 mt-2">
-                {[
-                  reportData.company_info?.facility_address_line_1,
-                  reportData.company_info?.facility_address_line_2,
-                  reportData.company_info?.facility_postcode,
-                  reportData.company_info?.facility_state,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-              </p>
+              <div className="mt-2 space-y-2 text-gray-700 dark:text-gray-300">
+                <p>
+                  <span className="font-semibold">Facility 1:</span>{' '}
+                  {[
+                    reportData.company_info?.facility_address_line_1,
+                    reportData.company_info?.facility_address_line_2,
+                    reportData.company_info?.facility_postcode,
+                    reportData.company_info?.facility_state,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                </p>
+                {reportData.company_info?.facility_count === '2' && (
+                  <p>
+                    <span className="font-semibold">Facility 2:</span>{' '}
+                    {[
+                      reportData.company_info?.facility_2_address_line_1,
+                      reportData.company_info?.facility_2_address_line_2,
+                      reportData.company_info?.facility_2_postcode,
+                      reportData.company_info?.facility_2_state,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
