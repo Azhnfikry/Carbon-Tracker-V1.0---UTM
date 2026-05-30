@@ -44,6 +44,7 @@ export function EmissionTable({ entries, studentEntries, onDataChange, user }: E
     (entry) =>
       entry.activity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.facility?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.scope.toString().includes(searchTerm.toLowerCase()) ||
       entry.quantity.toString().includes(searchTerm.toLowerCase()) ||
@@ -385,6 +386,7 @@ export function EmissionTable({ entries, studentEntries, onDataChange, user }: E
                 <TableHead>Date</TableHead>
                 <TableHead>Activity Type</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Facility</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Unit</TableHead>
@@ -399,7 +401,7 @@ export function EmissionTable({ entries, studentEntries, onDataChange, user }: E
             <TableBody>
               {filteredEntries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={user ? 12 : 11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={user ? 14 : 12} className="text-center py-8 text-muted-foreground">
                     {searchTerm
                       ? "No entries match your search."
                       : !user
@@ -430,6 +432,7 @@ export function EmissionTable({ entries, studentEntries, onDataChange, user }: E
                     <TableCell className="font-medium">{new Date(entry.date).toLocaleDateString()}</TableCell>
                     <TableCell>{entry.activity_type}</TableCell>
                     <TableCell>{entry.category}</TableCell>
+                    <TableCell>{entry.facility || "Unassigned"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={getScopeBadgeColor(entry.scope)}>
                         Scope {entry.scope}

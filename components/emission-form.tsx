@@ -14,6 +14,7 @@ import { Plus, Calculator, LogIn, Upload, FileUp, CheckCircle } from "lucide-rea
 import { createClient } from "@/lib/supabase/client";
 import { calculateCO2Equivalent, calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
 import { DocumentUpload } from "@/components/document-upload";
+import { buildFacilityOptions, type FacilityOption } from "@/lib/facilities";
 import type { EmissionFactor, ExtractionResult, ExtractedItem } from "@/types/emission";
 import type { User } from "@supabase/supabase-js";
 
@@ -26,6 +27,7 @@ interface EmissionFormProps {
 export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: EmissionFormProps) {
 	const [activityType, setActivityType] = useState("");
 	const [category, setCategory] = useState("");
+	const [facility, setFacility] = useState("Facility 1");
 	const [scope, setScope] = useState<1 | 2 | 3 | "">("");
 	const [quantity, setQuantity] = useState("");
 	const [unit, setUnit] = useState("");
@@ -39,6 +41,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [emissionFactors, setEmissionFactors] = useState<EmissionFactor[]>([]);
+	const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>([{ value: "Facility 1", label: "Facility 1" }]);
 	const [showOCRSection, setShowOCRSection] = useState(false);
 	const [extractedItems, setExtractedItems] = useState<ExtractedItem[]>([]);
 	const [currentItemIndex, setCurrentItemIndex] = useState(0);
@@ -47,7 +50,8 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 
 	useEffect(() => {
 		loadEmissionFactors();
-	}, []);
+		loadFacilityOptions();
+	}, [user]);
 
 	const loadEmissionFactors = async () => {
 		try {
@@ -57,6 +61,25 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 			setEmissionFactors(data || []);
 		} catch (error) {
 			console.error("Error loading emission factors:", error);
+		}
+	};
+
+	const loadFacilityOptions = async () => {
+		if (!user) return;
+
+		try {
+			const { data, error } = await supabase
+				.from("company_info")
+				.select("facility_count, facility_address_line_1, facility_postcode, facility_state, facility_2_address_line_1, facility_2_postcode, facility_2_state")
+				.eq("user_id", user.id)
+				.single();
+
+			if (error && error.code !== "PGRST116") throw error;
+			const options = buildFacilityOptions(data);
+			setFacilityOptions(options);
+			setFacility((current) => (options.some((option) => option.value === current) ? current : options[0].value));
+		} catch (error) {
+			console.error("Error loading facility options:", error);
 		}
 	};
 
@@ -192,6 +215,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 				user_id: user.id,
 				activity_type: activityType,
 				category,
+				facility,
 				scope: Number(scope),
 				quantity: Number.parseFloat(quantity),
 				unit,
@@ -209,6 +233,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 			// Reset form
 			setActivityType("");
 			setCategory("");
+			setFacility(facilityOptions[0]?.value || "Facility 1");
 			setScope("");
 			setQuantity("");
 			setUnit("");
@@ -281,6 +306,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 					user_id: user.id,
 					activity_type: activityType,
 					category: factor?.category || item.dataType,
+					facility,
 					scope: selectedScope,
 					quantity: item.value,
 					unit: item.unit,
@@ -301,6 +327,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 			// Reset form
 			setActivityType("");
 			setCategory("");
+			setFacility(facilityOptions[0]?.value || "Facility 1");
 			setScope("");
 			setQuantity("");
 			setUnit("");
@@ -432,6 +459,22 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 					)}
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div className="space-y-2">
+							<Label htmlFor="facility">Facility</Label>
+							<Select value={facility} onValueChange={setFacility}>
+								<SelectTrigger id="facility">
+									<SelectValue placeholder="Select facility" />
+								</SelectTrigger>
+								<SelectContent>
+									{facilityOptions.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
 						<div className="space-y-2">
 							<Label htmlFor="date">Date</Label>
 							<Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />

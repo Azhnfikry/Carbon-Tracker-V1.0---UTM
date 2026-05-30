@@ -24,6 +24,7 @@ interface ExtractedEmissionData {
   Scope: string;
   Quantity: string;
   Unit: string;
+  Facility?: string;
   Year?: string;
   Month?: string;
   Date?: string;
@@ -236,6 +237,7 @@ function extractFromCSV(text: string): ExtractedEmissionData[] {
   const scopeIndex = headers.findIndex((h) => h.includes("scope"));
   const quantityIndex = headers.findIndex((h) => h.includes("quantity"));
   const unitIndex = headers.findIndex((h) => h.includes("unit"));
+  const facilityIndex = headers.findIndex((h) => h.includes("facility"));
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
@@ -250,6 +252,7 @@ function extractFromCSV(text: string): ExtractedEmissionData[] {
         Scope: scopeIndex >= 0 ? row[scopeIndex] : "Scope 1",
         Quantity: quantityIndex >= 0 ? row[quantityIndex] : "0",
         Unit: unitIndex >= 0 ? row[unitIndex] : "kg",
+        Facility: facilityIndex >= 0 ? row[facilityIndex] : undefined,
       });
     }
   }

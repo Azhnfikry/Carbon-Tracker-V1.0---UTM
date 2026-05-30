@@ -2,6 +2,7 @@ export interface EmissionEntry {
   id: string
   activity_type: string
   category: string
+  facility?: string
   scope: 1 | 2 | 3
   quantity: number
   unit: string

@@ -1,13 +1,15 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileText, Loader2, CheckCircle, XCircle, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
+import { buildFacilityOptions, type FacilityOption } from "@/lib/facilities";
 import type { User } from "@supabase/supabase-js";
 
 interface ExtractedEmissionData {
@@ -18,6 +20,7 @@ interface ExtractedEmissionData {
 	Date?: string;
 	Year?: string;
 	Month?: string;
+	Facility?: string;
 }
 
 interface ExtractedStudentData {
@@ -41,11 +44,36 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 	const [fileName, setFileName] = useState("");
 	const [extractedData, setExtractedData] = useState<ExtractedEmissionData[]>([]);
 	const [extractedStudentData, setExtractedStudentData] = useState<ExtractedStudentData[]>([]);
+	const [facility, setFacility] = useState("Facility 1");
+	const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>([{ value: "Facility 1", label: "Facility 1" }]);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [processingStatus, setProcessingStatus] = useState("");
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const supabase = createClient();
+
+	useEffect(() => {
+		const loadFacilityOptions = async () => {
+			if (!user) return;
+
+			try {
+				const { data, error } = await supabase
+					.from("company_info")
+					.select("facility_count, facility_address_line_1, facility_postcode, facility_state, facility_2_address_line_1, facility_2_postcode, facility_2_state")
+					.eq("user_id", user.id)
+					.single();
+
+				if (error && error.code !== "PGRST116") throw error;
+				const options = buildFacilityOptions(data);
+				setFacilityOptions(options);
+				setFacility((current) => (options.some((option) => option.value === current) ? current : options[0].value));
+			} catch (error) {
+				console.error("Error loading facility options:", error);
+			}
+		};
+
+		loadFacilityOptions();
+	}, [user]);
 
 	const normalizeValue = (value: string) =>
 		value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -449,6 +477,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					user_id: user.id,
 					activity_type: matchedFactor?.activity_type || item["Activity Type"],
 					category: matchedFactor?.category || "Unknown",
+					facility: item.Facility || facility,
 					scope: scopeNumber,
 					quantity,
 					unit: matchedFactor?.unit || item.Unit,
@@ -595,6 +624,27 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 						</Button>
 					</div>
 
+					{uploadType === "emissions" && (
+						<div className="space-y-2">
+							<label className="block text-sm font-medium">Facility for Uploaded Entries</label>
+							<Select value={facility} onValueChange={setFacility}>
+								<SelectTrigger>
+									<SelectValue placeholder="Select facility" />
+								</SelectTrigger>
+								<SelectContent>
+									{facilityOptions.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<p className="text-xs text-muted-foreground">
+								This facility will be applied to all uploaded emission entries unless the file includes a Facility column.
+							</p>
+						</div>
+					)}
+
 					{/* File Upload Section */}
 					<div className="space-y-2">
 						<label className="block text-sm font-medium">
@@ -689,6 +739,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 											<th className="text-left p-2">Scope</th>
 											<th className="text-left p-2">Quantity</th>
 											<th className="text-left p-2">Unit</th>
+											<th className="text-left p-2">Facility</th>
 											<th className="text-left p-2">Date</th>
 										</tr>
 									</thead>
@@ -699,6 +750,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 												<td className="p-2">{item.Scope}</td>
 												<td className="p-2">{item.Quantity}</td>
 												<td className="p-2">{item.Unit}</td>
+												<td className="p-2">{item.Facility || facility}</td>
 												<td className="p-2">{item.Date || "-"}</td>
 											</tr>
 										))}
@@ -830,6 +882,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 						<li>Column 2: Scope (1, 2, or 3)</li>
 						<li>Column 3: Quantity (number)</li>
 						<li>Column 4: Unit (kWh, liters, km, etc.)</li>
+						<li>Optional: Facility (Facility 1 or Facility 2)</li>
 					</ul>
 					<p className="mt-3 text-xs text-gray-600">
 						💡 <strong>Tip:</strong> CSV files work instantly. PDF/Word files require Gemini API key. 

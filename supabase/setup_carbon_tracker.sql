@@ -73,6 +73,7 @@ create table if not exists public.emissions (
   user_id uuid not null references auth.users(id) on delete cascade,
   activity_type text not null,
   category text not null,
+  facility text,
   scope integer not null check (scope in (1, 2, 3)),
   quantity double precision not null,
   unit text not null,

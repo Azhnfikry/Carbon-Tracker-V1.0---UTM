@@ -140,6 +140,28 @@ function buildExportTables(entries: EmissionEntry[], studentEntries: StudentCoun
       ]),
   ];
 
+  const facilityMap = new Map<string, { emissions: number; count: number }>();
+  for (const entry of entries) {
+    const facility = entry.facility || "Unassigned";
+    const current = facilityMap.get(facility) || { emissions: 0, count: 0 };
+    current.emissions += entry.co2_equivalent || entry.co2Equivalent || 0;
+    current.count += 1;
+    facilityMap.set(facility, current);
+  }
+
+  const facilityRows: SheetRow[] = [
+    ["Facility", "Entries", "Emissions", "Unit", "Share of Total"],
+    ...[...facilityMap.entries()]
+      .sort(([, a], [, b]) => b.emissions - a.emissions)
+      .map(([facility, data]) => [
+        facility,
+        data.count,
+        Number(data.emissions.toFixed(4)),
+        "kg CO2e",
+        summary.totalEmissions > 0 ? Number(((data.emissions / summary.totalEmissions) * 100).toFixed(2)) : 0,
+      ]),
+  ];
+
   const monthly = new Map<string, { total: number; scope1: number; scope2: number; scope3: number }>();
   for (const entry of entries) {
     const key = monthKey(entry.date);
@@ -188,6 +210,7 @@ function buildExportTables(entries: EmissionEntry[], studentEntries: StudentCoun
     "GHG Summary": summaryRows,
     "Monthly Analytics": monthlyRows,
     "Category Breakdown": categoryRows,
+    "Facility Breakdown": facilityRows,
     "Student Counts": studentRows,
   };
 }

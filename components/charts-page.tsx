@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import { TrendingUp, TrendingDown, Activity, Calendar, BarChart3, PieChartIcon, LineChartIcon, Users } from "lucide-react";
 import type { EmissionEntry, EmissionSummary, StudentCountEntry } from "@/types/emission";
-import { formatEmissions } from "@/lib/emission-calculations";
+import { calculateEmissionSummary, formatEmissions } from "@/lib/emission-calculations";
 import { useState } from "react";
 
 interface ChartsPageProps {
@@ -36,11 +36,19 @@ interface ChartsPageProps {
 export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps) {
 	const [timeRange, setTimeRange] = useState("12m");
 	const [chartType, setChartType] = useState("area");
+	const [selectedFacility, setSelectedFacility] = useState("all");
 	const getMonthLabel = (dateValue: string) =>
 		new Date(dateValue).toLocaleDateString("en-US", { year: "numeric", month: "short" });
 
+	const facilityOptions = Array.from(new Set(entries.map((entry) => entry.facility || "Unassigned")));
+	const filteredEntries =
+		selectedFacility === "all"
+			? entries
+			: entries.filter((entry) => (entry.facility || "Unassigned") === selectedFacility);
+	const filteredSummary = calculateEmissionSummary(filteredEntries);
+
 	// Process data by month and scope
-	const monthlyData = entries.reduce(
+	const monthlyData = filteredEntries.reduce(
 		(acc, entry) => {
 			const date = new Date(entry.date);
 			const month = getMonthLabel(entry.date);
@@ -116,28 +124,28 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 
 	const intensityData = trendData.filter((item) => item.intensity !== null);
 
-	const categoryData = Object.entries(summary.byCategory)
+	const categoryData = Object.entries(filteredSummary.byCategory)
 		.map(([category, value]) => ({
 			name: category,
 			value: Number(value.toFixed(2)),
-			percentage: ((value / summary.totalEmissions) * 100).toFixed(1),
+			percentage: filteredSummary.totalEmissions > 0 ? ((value / filteredSummary.totalEmissions) * 100).toFixed(1) : "0.0",
 		}))
 		.sort((a, b) => b.value - a.value);
 
 	const scopeData = [
 		{
 			name: "Scope 1",
-			value: Number(summary.scope1.toFixed(2)),
+			value: Number(filteredSummary.scope1.toFixed(2)),
 			description: "Direct emissions",
 		},
 		{
 			name: "Scope 2",
-			value: Number(summary.scope2.toFixed(2)),
+			value: Number(filteredSummary.scope2.toFixed(2)),
 			description: "Indirect energy",
 		},
 		{
 			name: "Scope 3",
-			value: Number(summary.scope3.toFixed(2)),
+			value: Number(filteredSummary.scope3.toFixed(2)),
 			description: "Other indirect",
 		},
 	].filter((item) => item.value > 0);
@@ -147,7 +155,27 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 	const monthlyChange = currentMonth - previousMonth;
 	const monthlyChangePercent = previousMonth > 0 ? ((monthlyChange / previousMonth) * 100).toFixed(1) : "0";
 	const latestStudentCount = [...studentEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.students || 0;
-	const overallIntensity = latestStudentCount > 0 ? (summary.totalEmissions / 1000) / latestStudentCount : 0;
+	const overallIntensity = latestStudentCount > 0 ? (filteredSummary.totalEmissions / 1000) / latestStudentCount : 0;
+	const facilityData = Array.from(
+		entries.reduce((acc, entry) => {
+			const facility = entry.facility || "Unassigned";
+			const current = acc.get(facility) || { facility, emissions: 0, count: 0 };
+			current.emissions += entry.co2_equivalent || entry.co2Equivalent || 0;
+			current.count += 1;
+			acc.set(facility, current);
+			return acc;
+		}, new Map<string, { facility: string; emissions: number; count: number }>())
+		.values()
+	)
+		.map((item) => ({
+			...item,
+			emissions: Number(item.emissions.toFixed(2)),
+			percentage:
+				summary.totalEmissions > 0
+					? Number(((item.emissions / summary.totalEmissions) * 100).toFixed(1))
+					: 0,
+		}))
+		.sort((a, b) => b.emissions - a.emissions);
 
 	return (
 		<div className="space-y-6">
@@ -157,6 +185,19 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 					<p className="text-muted-foreground">Comprehensive view of your carbon footprint</p>
 				</div>
 				<div className="flex items-center gap-3">
+					<Select value={selectedFacility} onValueChange={setSelectedFacility}>
+						<SelectTrigger className="w-48">
+							<SelectValue placeholder="Filter facility" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All facilities</SelectItem>
+							{facilityOptions.map((facility) => (
+								<SelectItem key={facility} value={facility}>
+									{facility}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 					<Select value={timeRange} onValueChange={setTimeRange}>
 						<SelectTrigger className="w-32">
 							<SelectValue />
@@ -177,7 +218,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm font-medium text-muted-foreground">Total Emissions</p>
-								<div className="text-2xl font-bold text-foreground">{formatEmissions(summary.totalEmissions)}</div>
+								<div className="text-2xl font-bold text-foreground">{formatEmissions(filteredSummary.totalEmissions)}</div>
 							</div>
 							<div className="p-3 bg-primary/10 rounded-full">
 								<Activity className="h-5 w-5 text-primary" />
@@ -224,7 +265,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm font-medium text-muted-foreground">Total Entries</p>
-								<div className="text-2xl font-bold text-foreground">{entries.length}</div>
+								<div className="text-2xl font-bold text-foreground">{filteredEntries.length}</div>
 							</div>
 							<div className="p-3 bg-chart-2/10 rounded-full">
 								<BarChart3 className="h-5 w-5 text-chart-2" />
@@ -232,7 +273,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 						</div>
 						<div className="mt-4">
 							<Badge variant="secondary" className="text-xs">
-								{Object.keys(summary.byCategory).length} categories
+								{Object.keys(filteredSummary.byCategory).length} categories
 							</Badge>
 						</div>
 					</CardContent>
@@ -244,7 +285,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 							<div>
 								<p className="text-sm font-medium text-muted-foreground">Avg per Entry</p>
 								<div className="text-2xl font-bold text-foreground">
-									{summary.totalEmissions > 0 ? (summary.totalEmissions / entries.length).toFixed(2) : "0.00"}
+									{filteredSummary.totalEmissions > 0 && filteredEntries.length > 0 ? (filteredSummary.totalEmissions / filteredEntries.length).toFixed(2) : "0.00"}
 									<span className="text-sm font-normal text-muted-foreground ml-1">kg CO₂e</span>
 								</div>
 							</div>
@@ -279,7 +320,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 			</div>
 
 			<Tabs defaultValue="trend" className="space-y-6">
-				<TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
+				<TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
 					<TabsTrigger value="trend" className="flex items-center gap-2">
 						<LineChartIcon className="h-4 w-4" />
 						Trend Analysis
@@ -291,6 +332,10 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 					<TabsTrigger value="scope" className="flex items-center gap-2">
 						<PieChartIcon className="h-4 w-4" />
 						Scope Analysis
+					</TabsTrigger>
+					<TabsTrigger value="facility" className="flex items-center gap-2">
+						<BarChart3 className="h-4 w-4" />
+						Facility Analysis
 					</TabsTrigger>
 				</TabsList>
 
@@ -675,7 +720,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 							<CardContent>
 								<div className="space-y-4">
 									{scopeData.map((scope, index) => {
-										const percentage = ((scope.value / summary.totalEmissions) * 100).toFixed(1);
+										const percentage = filteredSummary.totalEmissions > 0 ? ((scope.value / filteredSummary.totalEmissions) * 100).toFixed(1) : "0.0";
 										return (
 											<div key={scope.name} className="p-4 rounded-lg border border-border bg-card/50">
 												<div className="flex items-center justify-between mb-2">
@@ -705,6 +750,87 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 									{scopeData.length === 0 && (
 										<div className="text-center py-8 text-muted-foreground">
 											<p>No scope data to display</p>
+										</div>
+									)}
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				</TabsContent>
+
+				<TabsContent value="facility" className="space-y-6">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						<Card className="bg-card border-border">
+							<CardHeader>
+								<CardTitle className="text-lg font-medium">Emissions by Facility</CardTitle>
+								<p className="text-sm text-muted-foreground">Compare total emissions across facilities</p>
+							</CardHeader>
+							<CardContent>
+								<div className="h-80">
+									{facilityData.length > 0 ? (
+										<ResponsiveContainer width="100%" height="100%">
+											<BarChart data={facilityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+												<CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+												<XAxis dataKey="facility" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
+												<YAxis
+													tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+													label={{
+														value: "kg CO2e",
+														angle: -90,
+														position: "insideLeft",
+														style: { textAnchor: "middle", fill: "hsl(var(--muted-foreground))" },
+													}}
+												/>
+												<Tooltip
+													formatter={(value, name, props) => [
+														`${value} kg CO2e (${props.payload.percentage}%)`,
+														"Emissions",
+													]}
+												/>
+												<Bar dataKey="emissions" fill="#16a34a" radius={[4, 4, 0, 0]} />
+											</BarChart>
+										</ResponsiveContainer>
+									) : (
+										<div className="flex items-center justify-center h-full text-muted-foreground">
+											<div className="text-center">
+												<BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+												<p className="text-lg font-medium">No facility data available</p>
+												<p className="text-sm">Assign facilities to emission entries to compare them</p>
+											</div>
+										</div>
+									)}
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="bg-card border-border">
+							<CardHeader>
+								<CardTitle className="text-lg font-medium">Facility Rankings</CardTitle>
+								<p className="text-sm text-muted-foreground">Emission contribution and entry count</p>
+							</CardHeader>
+							<CardContent>
+								<div className="space-y-4">
+									{facilityData.map((facility, index) => (
+										<div key={facility.facility} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+											<div className="flex items-center gap-3">
+												<div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
+													{index + 1}
+												</div>
+												<div>
+													<p className="font-medium text-foreground">{facility.facility}</p>
+													<p className="text-sm text-muted-foreground">
+														{facility.count} entries, {facility.percentage}% of total
+													</p>
+												</div>
+											</div>
+											<div className="text-right">
+												<p className="font-medium text-foreground">{formatEmissions(facility.emissions)}</p>
+											</div>
+										</div>
+									))}
+									{facilityData.length === 0 && (
+										<div className="text-center py-8 text-muted-foreground">
+											<p>No facilities to display</p>
 										</div>
 									)}
 								</div>

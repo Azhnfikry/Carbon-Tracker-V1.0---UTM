@@ -125,6 +125,15 @@ export async function POST(request: NextRequest) {
     const qualityChecks = buildDataQualityChecks(entries, students);
     const latestStudents = [...students].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.students || 0;
     const totalTco2e = summary.totalEmissions / 1000;
+    const facilities = Object.fromEntries(
+      Array.from(
+        entries.reduce((acc, entry) => {
+          const facility = entry.facility || "Unassigned";
+          acc.set(facility, (acc.get(facility) || 0) + (entry.co2_equivalent || entry.co2Equivalent || 0));
+          return acc;
+        }, new Map<string, number>())
+      ).map(([facility, value]) => [facility, Number(value.toFixed(4))])
+    );
 
     const context = {
       company: {
@@ -141,6 +150,7 @@ export async function POST(request: NextRequest) {
         latest_students: latestStudents,
         tco2e_per_student: latestStudents > 0 ? Number((totalTco2e / latestStudents).toFixed(8)) : null,
         categories: summary.byCategory,
+        facilities,
         emission_rows: entries.length,
         student_rows: students.length,
       },
@@ -164,7 +174,7 @@ export async function POST(request: NextRequest) {
 
 Your job:
 - Answer questions using only the provided app data.
-- Explain emissions, scopes, categories, monthly trends, and tCO2e/student clearly.
+- Explain emissions, scopes, categories, facilities, monthly trends, and tCO2e/student clearly.
 - Highlight data gaps, suspicious patterns, and next actions.
 - Never claim you changed database records. You can recommend actions, but users must approve changes manually.
 - If the data is insufficient, say exactly what is missing.
