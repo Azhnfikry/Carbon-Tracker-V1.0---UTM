@@ -64,6 +64,25 @@ const EXCLUDED_ACTIVITIES_OPTIONS = [
   { id: 'scope3_cat15_excluded', label: 'Scope 3 - Category 15: Investments', category: 'Scope 3' },
 ];
 
+const MALAYSIA_STATES = [
+  'Johor',
+  'Kedah',
+  'Kelantan',
+  'Melaka',
+  'Negeri Sembilan',
+  'Pahang',
+  'Penang',
+  'Perak',
+  'Perlis',
+  'Sabah',
+  'Sarawak',
+  'Selangor',
+  'Terengganu',
+  'Kuala Lumpur',
+  'Labuan',
+  'Putrajaya',
+];
+
 interface ExcludedActivity {
   id: string;
   reason: string;
@@ -81,6 +100,10 @@ interface CompanyInfo {
   user_id: string;
   company_name: string;
   company_description: string;
+  facility_address_line_1: string;
+  facility_address_line_2: string;
+  facility_postcode: string;
+  facility_state: string;
   consolidation_approach: string;
   business_description: string;
   reporting_period: string;
@@ -122,6 +145,10 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     user_id: user?.id || '',
     company_name: '',
     company_description: '',
+    facility_address_line_1: '',
+    facility_address_line_2: '',
+    facility_postcode: '',
+    facility_state: '',
     consolidation_approach: 'equity-share',
     business_description: '',
     reporting_period: '',
@@ -374,6 +401,10 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
       const dataToSave = {
         company_name: formData.company_name,
         company_description: formData.company_description,
+        facility_address_line_1: formData.facility_address_line_1,
+        facility_address_line_2: formData.facility_address_line_2,
+        facility_postcode: formData.facility_postcode,
+        facility_state: formData.facility_state,
         consolidation_approach: formData.consolidation_approach,
         business_description: formData.business_description,
         reporting_period: formData.reporting_period,
@@ -551,6 +582,70 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
                 rows={4}
                 required
               />
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-slate-700">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Location of Facilities</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Provide the primary facility address used for this reporting boundary.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="facility_address_line_1">Address Line 1 *</Label>
+                <Input
+                  id="facility_address_line_1"
+                  placeholder="Building name, street address"
+                  value={formData.facility_address_line_1}
+                  onChange={(e) => handleInputChange(e, 'facility_address_line_1')}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="facility_address_line_2">Address Line 2</Label>
+                <Input
+                  id="facility_address_line_2"
+                  placeholder="Unit, floor, area, or additional address details"
+                  value={formData.facility_address_line_2}
+                  onChange={(e) => handleInputChange(e, 'facility_address_line_2')}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="facility_postcode">Postcode *</Label>
+                  <Input
+                    id="facility_postcode"
+                    inputMode="numeric"
+                    placeholder="e.g., 50450"
+                    value={formData.facility_postcode}
+                    onChange={(e) => handleInputChange(e, 'facility_postcode')}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="facility_state">State *</Label>
+                  <Select
+                    value={formData.facility_state}
+                    onValueChange={(value) => handleSelectChange('facility_state', value)}
+                    required
+                  >
+                    <SelectTrigger id="facility_state">
+                      <SelectValue placeholder="Select Malaysian state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MALAYSIA_STATES.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -447,6 +447,10 @@ export async function GET(request: NextRequest) {
       company_info: {
         name: companyInfo?.company_name || 'N/A',
         description: companyInfo?.company_description || '',
+        facility_address_line_1: companyInfo?.facility_address_line_1 || '',
+        facility_address_line_2: companyInfo?.facility_address_line_2 || '',
+        facility_postcode: companyInfo?.facility_postcode || '',
+        facility_state: companyInfo?.facility_state || '',
         consolidation_approach: companyInfo?.consolidation_approach || '',
         business_description: companyInfo?.business_description || '',
         reporting_period: companyInfo?.reporting_period || '',

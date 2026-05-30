@@ -42,6 +42,10 @@ import {
 type CompanyInfo = {
   name?: string;
   description?: string;
+  facility_address_line_1?: string;
+  facility_address_line_2?: string;
+  facility_postcode?: string;
+  facility_state?: string;
   consolidation_approach?: string;
   business_description?: string;
   reporting_period?: string;
@@ -616,6 +620,22 @@ export function EmissionReport() {
               <p className="text-lg text-gray-900 dark:text-white">{reportData.user_email}</p>
             </div>
           </div>
+
+          {(reportData.company_info?.facility_address_line_1 || reportData.company_info?.facility_state) && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Location of Facilities</p>
+              <p className="text-gray-700 dark:text-gray-300 mt-2">
+                {[
+                  reportData.company_info?.facility_address_line_1,
+                  reportData.company_info?.facility_address_line_2,
+                  reportData.company_info?.facility_postcode,
+                  reportData.company_info?.facility_state,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            </div>
+          )}
 
           {reportData.company_description && (
             <div className="mb-4">
