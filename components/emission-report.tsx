@@ -340,6 +340,7 @@ export function EmissionReport() {
             .pt-2 { padding-top: 8px; }
             .pt-4 { padding-top: 16px; }
             .pt-6 { padding-top: 24px; }
+            .pt-8 { padding-top: 32px; }
             .p-3 { padding: 12px; }
             .p-4 { padding: 16px; }
             .p-5 { padding: 20px; }
@@ -352,6 +353,7 @@ export function EmissionReport() {
             .mb-6 { margin-bottom: 24px; }
             .mt-2 { margin-top: 8px; }
             .mt-4 { margin-top: 16px; }
+            .mt-6 { margin-top: 24px; }
             
             .bg-red-50 { background: #fef2f2; }
             .bg-amber-50 { background: #fffbeb; }
@@ -380,6 +382,7 @@ export function EmissionReport() {
             .items-start { align-items: flex-start; }
             .flex-shrink-0 { flex-shrink: 0; }
             .w-full { width: 100%; }
+            .min-h-16 { min-height: 64px; }
             .h-72 { height: 288px; }
             .h-80 { height: 320px; }
             .h-5 { height: 20px; }
@@ -1309,10 +1312,28 @@ export function EmissionReport() {
         </div>
 
         {/* Footer */}
-        <div className="border-t-2 border-gray-300 pt-6 text-center text-xs text-gray-600 dark:text-gray-400 space-y-2">
-          <p><strong>Report Prepared:</strong> {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-          <p>© {new Date().getFullYear()} Carbon Calculator - GHG Emissions Inventory Report</p>
-          <p className="italic">This report is based on data provided by the user and calculated using industry-standard emission factors.</p>
+        <div className="border-t-2 border-gray-300 pt-6 text-xs text-gray-600 dark:text-gray-400 space-y-4">
+          <div className="grid grid-cols-3 gap-6 text-left">
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500">Prepared By</p>
+              <div className="min-h-16 border-b border-gray-300 pt-8"></div>
+              <p className="mt-2">Name / Signature / Date</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500">Reviewed By</p>
+              <div className="min-h-16 border-b border-gray-300 pt-8"></div>
+              <p className="mt-2">Name / Signature / Date</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500">Approved By</p>
+              <div className="min-h-16 border-b border-gray-300 pt-8"></div>
+              <p className="mt-2">Name / Signature / Date</p>
+            </div>
+          </div>
+          <p className="text-center"><strong>Report Prepared:</strong> {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="text-center"><strong>AI Drafting Disclosure:</strong> This report was drafted by the software with AI assistance and should be reviewed before use.</p>
+          <p className="text-center">© {new Date().getFullYear()} Carbon Calculator - GHG Emissions Inventory Report</p>
+          <p className="text-center italic">This report is based on data provided by the user and calculated using industry-standard emission factors.</p>
         </div>
       </div>
     </div>
