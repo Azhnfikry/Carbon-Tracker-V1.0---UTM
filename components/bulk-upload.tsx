@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload, FileText, Loader2, CheckCircle, XCircle, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
+import { mergeEmissionFactorsWithLocalDefinitions } from "@/lib/emission-factor-sync";
 import { buildFacilityOptions, type FacilityOption } from "@/lib/facilities";
 import type { User } from "@supabase/supabase-js";
 
@@ -436,7 +437,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 
 			if (factorError) throw factorError;
 
-			const factorList = factors || [];
+			const factorList = mergeEmissionFactorsWithLocalDefinitions(factors || []);
 
 			// Prepare entries for insertion
 			const entriesToInsert = extractedData.map((item, index) => {

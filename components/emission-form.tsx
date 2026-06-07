@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Calculator, LogIn, Upload, FileUp, CheckCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateCO2Equivalent, calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
+import { mergeEmissionFactorsWithLocalDefinitions } from "@/lib/emission-factor-sync";
 import { DocumentUpload } from "@/components/document-upload";
 import { buildFacilityOptions, type FacilityOption } from "@/lib/facilities";
 import type { EmissionFactor, ExtractionResult, ExtractedItem } from "@/types/emission";
@@ -58,7 +59,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
       const { data, error } = await supabase.from("emission_factors").select("*").order("activity_type");
 
 			if (error) throw error;
-			setEmissionFactors(data || []);
+			setEmissionFactors(mergeEmissionFactorsWithLocalDefinitions(data || []));
 		} catch (error) {
 			console.error("Error loading emission factors:", error);
 		}

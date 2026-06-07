@@ -258,10 +258,10 @@ values
   ('17', 'Total Solar Generation (kWh)', 'Electricity', 2, 'Kwh', 0.774, null, null, null, 'Malaysia Energy Comission (2023)', 2023),
   ('18', 'Total Solar Injected to Grid (kWh)', 'Electricity', 2, 'Kwh', 0.774, null, null, null, 'Malaysia Energy Comission (2023)', 2023),
   ('19', 'Total Green Electricity Tarif Purchased (kWh)', 'Electricity', 2, 'Kwh', 0.774, null, null, null, 'Malaysia Energy Comission (2023)', 2023),
-  ('20', 'Solid Waste (Landfill)', 'Waste (Solid)', 3, 'Kg', 520.335, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025),
-  ('21', 'Food Waste', 'Waste (Solid)', 3, 'Kg', 655.987, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025),
-  ('22', 'Kitar Semula', 'Waste (Solid)', 3, 'Kg', 90, null, null, null, 'EPA', 2021),
-  ('23', 'Sisa Landskap', 'Waste (Solid)', 3, 'Kg', 646.607, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025),
+  ('20', 'Solid Waste (Landfill)', 'Waste (Solid)', 3, 'Kg', 0.520335, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025),
+  ('21', 'Food Waste', 'Waste (Solid)', 3, 'Kg', 0.655987, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025),
+  ('22', 'Kitar Semula', 'Waste (Solid)', 3, 'Kg', 0.09, null, null, null, 'EPA', 2021),
+  ('23', 'Sisa Landskap', 'Waste (Solid)', 3, 'Kg', 0.646607, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025),
   ('24', 'Total Water Purchased (m3)', 'Water Supply', 3, 'm3', 0.1776, null, null, null, 'GHG Protocol 2025 Condensed Set', 2025)
 on conflict (id) do update
 set
