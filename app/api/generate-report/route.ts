@@ -459,6 +459,7 @@ export async function GET(request: NextRequest) {
         consolidation_approach: companyInfo?.consolidation_approach || '',
         business_description: companyInfo?.business_description || '',
         reporting_period: companyInfo?.reporting_period || '',
+        financial_reporting_periods: companyInfo?.financial_reporting_periods || '',
         base_year: companyInfo?.base_year || new Date().getFullYear(),
         base_year_rationale: companyInfo?.base_year_rationale || '',
       },

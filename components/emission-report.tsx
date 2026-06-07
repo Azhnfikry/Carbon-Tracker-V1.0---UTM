@@ -55,8 +55,16 @@ type CompanyInfo = {
   consolidation_approach?: string;
   business_description?: string;
   reporting_period?: string;
+  financial_reporting_periods?: string;
   base_year?: number;
   base_year_rationale?: string;
+};
+
+type FinancialReportingPeriod = {
+  id?: string;
+  from?: string;
+  to?: string;
+  revenue?: string | number;
 };
 
 type EmissionByGas = {
@@ -630,7 +638,66 @@ export function EmissionReport() {
     });
   };
 
+  const parseFinancialReportingPeriods = (periodsStr?: string): FinancialReportingPeriod[] => {
+    if (!periodsStr) return [];
+    try {
+      const parsed = JSON.parse(periodsStr);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const formatReportDate = (date?: string): string => {
+    if (!date) return 'N/A';
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return date;
+    return parsed.toLocaleDateString('en-GB');
+  };
+
+  const formatRevenue = (value?: string | number): string => {
+    if (value === undefined || value === null || value === '') return 'N/A';
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return String(value);
+    return numericValue.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const getYearFromDate = (date?: string): number | null => {
+    if (!date) return null;
+    const year = new Date(date).getFullYear();
+    return Number.isFinite(year) ? year : null;
+  };
+
   const outlook = reportData.outlook;
+  const financialReportingPeriods = parseFinancialReportingPeriods(
+    reportData.company_info?.financial_reporting_periods
+  );
+  const primaryReportingPeriod = financialReportingPeriods[0];
+  const reportingYear =
+    getYearFromDate(primaryReportingPeriod?.from) ||
+    reportData.company_info?.reporting_period?.match(/\b(20\d{2}|19\d{2})\b/)?.[0] ||
+    reportData.inventory_year ||
+    'N/A';
+  const reportingPeriodLabel = primaryReportingPeriod
+    ? `From: ${formatReportDate(primaryReportingPeriod.from)}\nTo: ${formatReportDate(primaryReportingPeriod.to)}`
+    : reportData.company_info?.reporting_period || `Year ${reportData.inventory_year}`;
+  const organizationMetrics = [
+    {
+      label: 'Revenue',
+      value: primaryReportingPeriod ? formatRevenue(primaryReportingPeriod.revenue) : 'N/A',
+    },
+    {
+      label: 'Latest Student Count',
+      value: outlook ? formatCompactNumber(outlook.analytics.latest_student_count) : 'N/A',
+    },
+    {
+      label: 'Emissions Intensity',
+      value: outlook ? `${outlook.analytics.per_student_tco2e.toFixed(4)} tCO2e/student` : 'N/A',
+    },
+  ];
   const confidenceLabel =
     outlook?.model_confidence === 'high'
       ? 'High confidence'
@@ -861,32 +928,41 @@ export function EmissionReport() {
             )}
           </div>
 
-          {/* OPERATIONAL BOUNDARIES SUB-SECTION */}
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700 mb-6">
-            <h3 className="text-sm font-bold text-blue-900 dark:text-blue-200 uppercase mb-4 border-b border-blue-300 pb-2">Scope & Emission Coverage</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-white dark:bg-slate-800 rounded border border-blue-200 dark:border-blue-600">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold">Scope 3 Included</p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white mt-2">
-                  {reportData.company_info?.consolidation_approach?.includes('scope3') || 
-                   (reportData.scope_3_total && reportData.scope_3_total > 0) ? 'Yes' : 'No'}
-                </p>
-              </div>
-              <div className="p-3 bg-white dark:bg-slate-800 rounded border border-blue-200 dark:border-blue-600">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold">Reporting Period</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-2">
-                  {reportData.company_info?.reporting_period || `Year ${reportData.inventory_year}`}
-                </p>
-              </div>
+          {/* REPORTING PERIOD & ORGANIZATION METRICS */}
+          <div className="mb-6 space-y-6 text-gray-900 dark:text-white">
+            <div>
+              <p className="font-bold">Reporting Year</p>
+              <p>{reportingYear}</p>
             </div>
 
-            {reportData.company_info?.business_description && (
-              <div className="mt-4 p-3 bg-white dark:bg-slate-800 rounded border border-blue-200 dark:border-blue-600">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold mb-2">Scope Coverage</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">Includes all applicable Scopes 1, 2, and 3 emissions as defined by GHG Protocol standards.</p>
+            <div>
+              <p className="font-bold">Reporting Period</p>
+              {reportingPeriodLabel.split('\n').map((line, index) => (
+                <p key={`${line}-${index}`}>{line}</p>
+              ))}
+            </div>
+
+            <div>
+              <p className="font-bold">Base Year</p>
+              <p>{reportData.company_info?.base_year || reportData.inventory_year || 'N/A'}</p>
+            </div>
+
+            <div>
+              <p className="font-bold">Base Year Rationale</p>
+              <p>{reportData.company_info?.base_year_rationale || '[ Text ]'}</p>
+            </div>
+
+            <div>
+              <p className="font-bold">Organization Metrics</p>
+              <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {organizationMetrics.map((metric) => (
+                  <div key={metric.label}>
+                    <p>{metric.label}</p>
+                    <p>{metric.value}</p>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
