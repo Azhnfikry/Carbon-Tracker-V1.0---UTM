@@ -316,7 +316,7 @@ export const emissionFactors: EmissionFactor[] = [
     section: "Waste (Solid)",
     type: "Solid Waste (Landfill)",
     units: "Kg",
-    co2e: 520.335,
+    co2e: 0.520335,
     unit: "Tonne",
     ref: "GHG Protocol 2025 Condensed Set",
     year: 2025
@@ -327,7 +327,7 @@ export const emissionFactors: EmissionFactor[] = [
     section: "Waste (Solid)",
     type: "Food Waste",
     units: "Kg",
-    co2e: 655.987,
+    co2e: 0.655987,
     unit: "Tonne",
     ref: "GHG Protocol 2025 Condensed Set",
     year: 2025
@@ -338,7 +338,7 @@ export const emissionFactors: EmissionFactor[] = [
     section: "Waste (Solid)",
     type: "Kitar Semula",
     units: "Kg",
-    co2e: 90,
+    co2e: 0.09,
     unit: "Tonne",
     ref: "EPA",
     year: 2021
@@ -349,7 +349,7 @@ export const emissionFactors: EmissionFactor[] = [
     section: "Waste (Solid)",
     type: "Sisa Landskap",
     units: "Kg",
-    co2e: 646.607,
+    co2e: 0.646607,
     unit: "Tonne",
     ref: "GHG Protocol 2025 Condensed Set",
     year: 2025
