@@ -39,8 +39,15 @@ const localFactorsForCalculation = localEmissionFactors
   })
   .filter((factor): factor is EmissionFactor => Boolean(factor));
 
-const factorKey = (factor: Pick<EmissionFactor, "scope" | "activity_type">) =>
-  `${factor.scope}:${factor.activity_type.toLowerCase()}`;
+const normalizeActivityType = (activityType: string) =>
+  activityType
+    .toLowerCase()
+    .replace(/\((kg|kwh|m3|litre|liter|unit|head|acre|mmbtu)\)\s*$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const factorKey = (factor: Pick<EmissionFactor, "scope" | "activity_type" | "category">) =>
+  `${factor.scope}:${factor.category.toLowerCase()}:${normalizeActivityType(factor.activity_type)}`;
 
 export function mergeEmissionFactorsWithLocalDefinitions(
   databaseFactors: EmissionFactor[] = []
@@ -52,7 +59,14 @@ export function mergeEmissionFactorsWithLocalDefinitions(
   });
 
   localFactorsForCalculation.forEach((factor) => {
-    merged.set(factorKey(factor), factor);
+    const key = factorKey(factor);
+    const existingFactor = merged.get(key);
+
+    merged.set(key, {
+      ...existingFactor,
+      ...factor,
+      activity_type: existingFactor?.activity_type || factor.activity_type,
+    });
   });
 
   return Array.from(merged.values());
