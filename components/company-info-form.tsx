@@ -499,6 +499,29 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     }
   };
 
+  const formatDisplayDate = (date?: string): string => {
+    if (!date) return 'N/A';
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return date;
+    return parsed.toLocaleDateString('en-GB');
+  };
+
+  const formatMetricNumber = (value?: string): string => {
+    if (!value) return 'N/A';
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return value;
+    return numericValue.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const primaryFinancialPeriod = financialPeriods[0];
+  const reportingYear =
+    primaryFinancialPeriod?.from && !Number.isNaN(new Date(primaryFinancialPeriod.from).getTime())
+      ? new Date(primaryFinancialPeriod.from).getFullYear()
+      : formData.reporting_period.match(/\b(20\d{2}|19\d{2})\b/)?.[0] || 'N/A';
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -903,7 +926,44 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
             <CardTitle>Reporting Period & Base Year</CardTitle>
             <CardDescription>Define your reporting timeframe</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <p className="font-bold text-foreground">Reporting Year</p>
+                <p className="mt-1 text-foreground">{reportingYear}</p>
+              </div>
+
+              <div>
+                <p className="font-bold text-foreground">Reporting Period</p>
+                <p className="mt-1 text-foreground">
+                  From: {formatDisplayDate(primaryFinancialPeriod?.from)}
+                </p>
+                <p className="text-foreground">
+                  To: {formatDisplayDate(primaryFinancialPeriod?.to)}
+                </p>
+              </div>
+
+              <div>
+                <p className="font-bold text-foreground">Base Year</p>
+                <p className="mt-1 text-foreground">{formData.base_year || 'N/A'}</p>
+              </div>
+
+              <div>
+                <p className="font-bold text-foreground">Base Year Rationale</p>
+                <p className="mt-1 text-foreground">{formData.base_year_rationale || '[ Text ]'}</p>
+              </div>
+
+              <div>
+                <p className="font-bold text-foreground">Organization Metrics</p>
+                <p className="mt-1 text-foreground">
+                  Revenue: {formatMetricNumber(primaryFinancialPeriod?.revenue)}
+                </p>
+                <p className="text-foreground">
+                  Facilities: {formData.facility_count || 'N/A'}
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="reporting_period">Reporting Period *</Label>
               <Input
