@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, Loader2, CheckCircle, XCircle, Users } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle, XCircle, Users, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
 import { mergeEmissionFactorsWithLocalDefinitions } from "@/lib/emission-factor-sync";
@@ -32,6 +32,9 @@ interface ExtractedStudentData {
 	Description: string;
 }
 
+// Description prefix that marks emission rows created by a Google Sheet sync, so a re-sync can replace them.
+const SHEET_SYNC_PREFIX = "Google Sheet sync";
+
 interface BulkUploadProps {
 	user: User | null;
 	onUploadSuccess?: () => void;
@@ -49,6 +52,8 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 	const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>([{ value: "Facility 1", label: "Facility 1" }]);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [processingStatus, setProcessingStatus] = useState("");
+	const [isSyncing, setIsSyncing] = useState(false);
+	const [syncFileId, setSyncFileId] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const supabase = createClient();
@@ -119,17 +124,23 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 	const extractPeopleTemplateFromFile = async (file: File): Promise<ExtractedStudentData[]> => {
 		const XLSX = await import("xlsx");
 		const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-		const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-		const rows = XLSX.utils.sheet_to_json<(string | number)[]>(worksheet, {
-			header: 1,
-			defval: "",
-			raw: false,
-		});
-
-		const headerRowIndex = rows.findIndex((row) => {
+		const isPeopleHeader = (row: (string | number)[]) => {
 			const normalized = row.map((cell) => normalizeValue(String(cell)));
 			return normalized.includes("year") && normalized.includes("month") && normalized.includes("student");
-		});
+		};
+
+		// The people table is either its own file or the "People" tab of the full data collection workbook.
+		let rows: (string | number)[][] = [];
+		let headerRowIndex = -1;
+		for (const sheetName of workbook.SheetNames) {
+			rows = XLSX.utils.sheet_to_json<(string | number)[]>(workbook.Sheets[sheetName], {
+				header: 1,
+				defval: "",
+				raw: false,
+			});
+			headerRowIndex = rows.findIndex(isPeopleHeader);
+			if (headerRowIndex !== -1) break;
+		}
 
 		if (headerRowIndex === -1) {
 			throw new Error("Could not find Year, Month, and Student columns in this people template.");
@@ -348,6 +359,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		setSuccess("");
 		setExtractedData([]);
 		setExtractedStudentData([]);
+		setSyncFileId(null);
 
 		if (uploadType === "people") {
 			await extractPeopleDataFromFile(file);
@@ -378,28 +390,32 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		}
 	};
 
+	const requestEmissionExtraction = async (file: File): Promise<ExtractedEmissionData[]> => {
+		const formData = new FormData();
+		formData.append("file", file);
+
+		const response = await fetch("/api/extract-emissions", {
+			method: "POST",
+			body: formData,
+		});
+
+		const data = await response.json();
+
+		if (!response.ok) {
+			const errorMsg = data.error || "Failed to extract emissions from file";
+			const hint = data.hint ? ` ${data.hint}` : "";
+			throw new Error(errorMsg + hint);
+		}
+
+		return data.emissions || [];
+	};
+
 	const extractDataFromFile = async (file: File) => {
 		setIsUploading(true);
 		setError("");
 
 		try {
-			const formData = new FormData();
-			formData.append("file", file);
-
-			const response = await fetch("/api/extract-emissions", {
-				method: "POST",
-				body: formData,
-			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
-				const errorMsg = data.error || "Failed to extract emissions from file";
-				const hint = data.hint ? ` ${data.hint}` : "";
-				throw new Error(errorMsg + hint);
-			}
-
-			const extracted: ExtractedEmissionData[] = data.emissions || [];
+			const extracted = await requestEmissionExtraction(file);
 
 			if (extracted.length === 0) {
 				setError("No emission data found in the file");
@@ -413,6 +429,115 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		} finally {
 			setIsUploading(false);
 		}
+	};
+
+	const clearPreview = () => {
+		setExtractedData([]);
+		setExtractedStudentData([]);
+		setFileName("");
+		setSyncFileId(null);
+		if (fileInputRef.current) fileInputRef.current.value = "";
+	};
+
+	// Matches extracted rows to emission factors and inserts them in batches of 100.
+	const insertEmissions = async (items: ExtractedEmissionData[], description: string) => {
+		if (!user) throw new Error("Please login to save entries");
+
+		const { data: factors, error: factorError } = await supabase
+			.from("emission_factors")
+			.select("*");
+
+		if (factorError) throw factorError;
+
+		const factorList = mergeEmissionFactorsWithLocalDefinitions(factors || []);
+
+		const entriesToInsert = items.map((item) => {
+			const scopeNumber = parseScopeNumber(item.Scope);
+			const matchedFactor = findMatchingFactor(item["Activity Type"], scopeNumber, factorList);
+
+			const quantity = parseFloat(item.Quantity);
+			const factor = matchedFactor?.factor || 1;
+
+			// Calculate individual gas emissions using available factors or fallback ratios
+			const co2Factor = matchedFactor?.co2 ?? null;
+			const ch4Factor = matchedFactor?.ch4 ?? null;
+			const n2oFactor = matchedFactor?.n2o ?? null;
+			const { co2, ch4, n2o, co2e } =
+				co2Factor !== null || ch4Factor !== null || n2oFactor !== null
+					? calculateGasEmissionsByFactors(
+							quantity,
+							typeof co2Factor === "number" ? co2Factor : 0,
+							typeof ch4Factor === "number" ? ch4Factor : 0,
+							typeof n2oFactor === "number" ? n2oFactor : 0
+						)
+					: calculateGasEmissionsByFactors(quantity, factor * 0.95, factor * 0.03, factor * 0.02);
+
+			return {
+				user_id: user.id,
+				activity_type: matchedFactor?.activity_type || item["Activity Type"],
+				category: matchedFactor?.category || "Unknown",
+				facility: item.Facility || facility,
+				scope: scopeNumber,
+				quantity,
+				unit: matchedFactor?.unit || item.Unit,
+				emission_factor: factor,
+				co2_equivalent: co2e,
+				co2,
+				ch4,
+				n2o,
+				date: normalizeUploadDate(item.Date, item.Year, item.Month, item["Activity Type"]),
+				description,
+			};
+		});
+
+		const batchSize = 100;
+		let successCount = 0;
+
+		for (let i = 0; i < entriesToInsert.length; i += batchSize) {
+			const batch = entriesToInsert.slice(i, i + batchSize);
+			const { error: insertError } = await supabase
+				.from("emissions")
+				.insert(batch);
+
+			if (insertError) {
+				throw new Error(`Batch ${Math.floor(i / batchSize) + 1}: ${insertError.message}`);
+			}
+			successCount += batch.length;
+			setProcessingStatus(`Inserted ${successCount} of ${entriesToInsert.length} entries...`);
+		}
+
+		return successCount;
+	};
+
+	// Upserts monthly student counts; an existing month is overwritten rather than duplicated.
+	const saveStudentCounts = async (items: ExtractedStudentData[]) => {
+		if (!user) throw new Error("Please login to save student records");
+
+		const rowsToUpsert = items.map((item) => ({
+			user_id: user.id,
+			date: item.Date,
+			students: item.Students,
+			description: item.Description,
+		}));
+
+		const batchSize = 100;
+		let successCount = 0;
+
+		for (let i = 0; i < rowsToUpsert.length; i += batchSize) {
+			const batch = rowsToUpsert.slice(i, i + batchSize);
+			const { error: insertError } = await supabase
+				.from("student_counts")
+				.upsert(batch, { onConflict: "user_id,date" });
+
+			if (insertError) {
+				throw new Error(`Batch ${Math.floor(i / batchSize) + 1}: ${insertError.message}`);
+			}
+
+			successCount += batch.length;
+			setProcessingStatus(`Saved ${successCount} of ${rowsToUpsert.length} student records...`);
+		}
+
+		return successCount;
 	};
 
 	const handleBulkInsert = async () => {
@@ -430,91 +555,9 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		setProcessingStatus("Processing entries...");
 
 		try {
-			// Get emission factors from database
-			const { data: factors, error: factorError } = await supabase
-				.from("emission_factors")
-				.select("*");
-
-			if (factorError) throw factorError;
-
-			const factorList = mergeEmissionFactorsWithLocalDefinitions(factors || []);
-
-			// Prepare entries for insertion
-			const entriesToInsert = extractedData.map((item, index) => {
-				setProcessingStatus(`Processing entry ${index + 1} of ${extractedData.length}...`);
-
-				const scopeNumber = parseScopeNumber(item.Scope);
-				const matchedFactor = findMatchingFactor(item["Activity Type"], scopeNumber, factorList);
-
-				const quantity = parseFloat(item.Quantity);
-				const factor = matchedFactor?.factor || 1;
-
-								// Calculate individual gas emissions using available factors or fallback ratios
-								const co2Factor = matchedFactor?.co2 ?? null;
-								const ch4Factor = matchedFactor?.ch4 ?? null;
-								const n2oFactor = matchedFactor?.n2o ?? null;
-								let gasResults;
-								if (co2Factor !== null || ch4Factor !== null || n2oFactor !== null) {
-									// Use available factors, fallback to 0 if missing
-									gasResults = calculateGasEmissionsByFactors(
-										quantity,
-										typeof co2Factor === "number" ? co2Factor : 0,
-										typeof ch4Factor === "number" ? ch4Factor : 0,
-										typeof n2oFactor === "number" ? n2oFactor : 0
-									);
-								} else {
-									// Fallback to ratios if no gas-specific factors
-									gasResults = calculateGasEmissionsByFactors(
-										quantity,
-										factor * 0.95,
-										factor * 0.03,
-										factor * 0.02
-									);
-								}
-
-								const { co2, ch4, n2o, co2e } = gasResults;
-
-				return {
-					user_id: user.id,
-					activity_type: matchedFactor?.activity_type || item["Activity Type"],
-					category: matchedFactor?.category || "Unknown",
-					facility: item.Facility || facility,
-					scope: scopeNumber,
-					quantity,
-					unit: matchedFactor?.unit || item.Unit,
-					emission_factor: factor,
-					co2_equivalent: co2e,
-					co2,
-					ch4,
-					n2o,
-					date: normalizeUploadDate(item.Date, item.Year, item.Month, item["Activity Type"]),
-					description: `Bulk uploaded from ${fileName}`,
-				};
-			});
-
-			// Insert in batches of 100
-			const batchSize = 100;
-			let successCount = 0;
-
-			for (let i = 0; i < entriesToInsert.length; i += batchSize) {
-				const batch = entriesToInsert.slice(i, i + batchSize);
-				const { error: insertError } = await supabase
-					.from("emissions")
-					.insert(batch);
-
-				if (insertError) {
-					throw new Error(`Batch ${Math.floor(i / batchSize) + 1}: ${insertError.message}`);
-				}
-				successCount += batch.length;
-				setProcessingStatus(
-					`Inserted ${successCount} of ${entriesToInsert.length} entries...`
-				);
-			}
-
+			const successCount = await insertEmissions(extractedData, `Bulk uploaded from ${fileName}`);
 			setSuccess(`✅ Successfully inserted ${successCount} emission entries!`);
-			setExtractedData([]);
-			setFileName("");
-			if (fileInputRef.current) fileInputRef.current.value = "";
+			clearPreview();
 			onUploadSuccess?.();
 		} catch (error) {
 			console.error("Database insertion error:", error);
@@ -540,38 +583,103 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 		setProcessingStatus("Processing student records...");
 
 		try {
-			const rowsToUpsert = extractedStudentData.map((item) => ({
-				user_id: user.id,
-				date: item.Date,
-				students: item.Students,
-				description: item.Description,
-			}));
-
-			const batchSize = 100;
-			let successCount = 0;
-
-			for (let i = 0; i < rowsToUpsert.length; i += batchSize) {
-				const batch = rowsToUpsert.slice(i, i + batchSize);
-				const { error: insertError } = await supabase
-					.from("student_counts")
-					.upsert(batch, { onConflict: "user_id,date" });
-
-				if (insertError) {
-					throw new Error(`Batch ${Math.floor(i / batchSize) + 1}: ${insertError.message}`);
-				}
-
-				successCount += batch.length;
-				setProcessingStatus(`Saved ${successCount} of ${rowsToUpsert.length} student records...`);
-			}
-
+			const successCount = await saveStudentCounts(extractedStudentData);
 			setSuccess(`Successfully saved ${successCount} student records!`);
-			setExtractedStudentData([]);
-			setFileName("");
-			if (fileInputRef.current) fileInputRef.current.value = "";
+			clearPreview();
 			onUploadSuccess?.();
 		} catch (error) {
 			console.error("Student count insertion error:", error);
 			setError(error instanceof Error ? error.message : "Failed to insert student records");
+		} finally {
+			setIsProcessing(false);
+			setProcessingStatus("");
+		}
+	};
+
+	// Downloads the shared data collection workbook and extracts emissions and student numbers for preview.
+	const handleSheetSync = async () => {
+		clearPreview();
+		setError("");
+		setSuccess("");
+		setIsSyncing(true);
+
+		try {
+			const response = await fetch("/api/google-sheets/import", { credentials: "include" });
+			if (!response.ok) {
+				const data = await response.json().catch(() => ({}));
+				throw new Error(data.error || "Failed to download the Google Sheet");
+			}
+
+			const name = decodeURIComponent(response.headers.get("X-File-Name") || "Google Sheet.xlsx");
+			const file = new File([await response.blob()], name, {
+				type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			});
+
+			const [emissions, people] = await Promise.all([
+				requestEmissionExtraction(file),
+				extractPeopleTemplateFromFile(file).catch(() => [] as ExtractedStudentData[]),
+			]);
+
+			if (emissions.length === 0 && people.length === 0) {
+				throw new Error(`No filled-in data found in "${name}"`);
+			}
+
+			setExtractedData(emissions);
+			setExtractedStudentData(people);
+			setFileName(name);
+			setSyncFileId(response.headers.get("X-File-Id"));
+			setSuccess(
+				`Found ${emissions.length} emission entries and ${people.length} monthly student records in "${name}". Review the preview, then save.`
+			);
+		} catch (error) {
+			setError(error instanceof Error ? error.message : "Failed to sync from Google Sheet");
+		} finally {
+			setIsSyncing(false);
+		}
+	};
+
+	// Saves a sheet sync. New rows are inserted first; rows from earlier syncs of the same
+	// sheet are removed only after that succeeds, so a failed sync never loses data.
+	const handleSyncSave = async () => {
+		if (!user || !syncFileId) return;
+
+		const description = `${SHEET_SYNC_PREFIX} ${new Date().toISOString()} [${syncFileId}]`;
+		setIsProcessing(true);
+		setError("");
+		setSuccess("");
+
+		try {
+			let emissionCount = 0;
+
+			if (extractedData.length > 0) {
+				try {
+					emissionCount = await insertEmissions(extractedData, description);
+				} catch (insertError) {
+					await supabase.from("emissions").delete().eq("user_id", user.id).eq("description", description);
+					throw insertError;
+				}
+
+				setProcessingStatus("Removing entries from the previous sync...");
+				const { error: deleteError } = await supabase
+					.from("emissions")
+					.delete()
+					.eq("user_id", user.id)
+					.like("description", `${SHEET_SYNC_PREFIX} % [${syncFileId}]`)
+					.neq("description", description);
+
+				if (deleteError) {
+					throw new Error(`New entries were saved, but entries from the previous sync could not be removed: ${deleteError.message}`);
+				}
+			}
+
+			const studentCount = extractedStudentData.length > 0 ? await saveStudentCounts(extractedStudentData) : 0;
+
+			setSuccess(`Synced ${emissionCount} emission entries and ${studentCount} student records from "${fileName}".`);
+			clearPreview();
+			onUploadSuccess?.();
+		} catch (error) {
+			console.error("Google Sheet sync save error:", error);
+			setError(error instanceof Error ? error.message : "Failed to save synced data");
 		} finally {
 			setIsProcessing(false);
 			setProcessingStatus("");
@@ -588,6 +696,35 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
+					<div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<p className="text-sm font-medium">Shared Google Sheet</p>
+							<p className="text-xs text-muted-foreground">
+								Pull the latest entries from the data collection sheet that data owners fill in. Emission data and student
+								numbers are previewed before saving, and saving replaces the previous sync.
+							</p>
+						</div>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={handleSheetSync}
+							disabled={isSyncing || isUploading || isProcessing}
+							className="shrink-0"
+						>
+							{isSyncing ? (
+								<>
+									<Loader2 className="h-4 w-4 animate-spin mr-2" />
+									Syncing...
+								</>
+							) : (
+								<>
+									<RefreshCw className="h-4 w-4 mr-2" />
+									Sync from Google Sheet
+								</>
+							)}
+						</Button>
+					</div>
+
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 						<Button
 							type="button"
@@ -596,10 +733,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 								setUploadType("emissions");
 								setError("");
 								setSuccess("");
-								setExtractedData([]);
-								setExtractedStudentData([]);
-								setFileName("");
-								if (fileInputRef.current) fileInputRef.current.value = "";
+								clearPreview();
 							}}
 							className="justify-start"
 						>
@@ -613,10 +747,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 								setUploadType("people");
 								setError("");
 								setSuccess("");
-								setExtractedData([]);
-								setExtractedStudentData([]);
-								setFileName("");
-								if (fileInputRef.current) fileInputRef.current.value = "";
+								clearPreview();
 							}}
 							className="justify-start"
 						>
@@ -759,26 +890,28 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 								</table>
 							</div>
 
-							{/* Insert Button */}
-							<Button
-								onClick={handleBulkInsert}
-								disabled={!user || isProcessing}
-								className="w-full bg-green-600 hover:bg-green-700"
-							>
-								{!user ? (
-									"Login Required"
-								) : isProcessing ? (
-									<>
-										<Loader2 className="h-4 w-4 animate-spin mr-2" />
-										Processing...
-									</>
-								) : (
-									<>
-										<CheckCircle className="h-4 w-4 mr-2" />
-										Insert {extractedData.length} Entries
-									</>
-								)}
-							</Button>
+							{/* Insert Button (a sheet sync saves everything with one button below) */}
+							{!syncFileId && (
+								<Button
+									onClick={handleBulkInsert}
+									disabled={!user || isProcessing}
+									className="w-full bg-green-600 hover:bg-green-700"
+								>
+									{!user ? (
+										"Login Required"
+									) : isProcessing ? (
+										<>
+											<Loader2 className="h-4 w-4 animate-spin mr-2" />
+											Processing...
+										</>
+									) : (
+										<>
+											<CheckCircle className="h-4 w-4 mr-2" />
+											Insert {extractedData.length} Entries
+										</>
+									)}
+								</Button>
+							)}
 						</div>
 					)}
 
@@ -825,26 +958,50 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 								</table>
 							</div>
 
-							<Button
-								onClick={handleStudentBulkInsert}
-								disabled={!user || isProcessing}
-								className="w-full bg-green-600 hover:bg-green-700"
-							>
-								{!user ? (
-									"Login Required"
-								) : isProcessing ? (
-									<>
-										<Loader2 className="h-4 w-4 animate-spin mr-2" />
-										Processing...
-									</>
-								) : (
-									<>
-										<CheckCircle className="h-4 w-4 mr-2" />
-										Save {extractedStudentData.length} Student Records
-									</>
-								)}
-							</Button>
+							{!syncFileId && (
+								<Button
+									onClick={handleStudentBulkInsert}
+									disabled={!user || isProcessing}
+									className="w-full bg-green-600 hover:bg-green-700"
+								>
+									{!user ? (
+										"Login Required"
+									) : isProcessing ? (
+										<>
+											<Loader2 className="h-4 w-4 animate-spin mr-2" />
+											Processing...
+										</>
+									) : (
+										<>
+											<CheckCircle className="h-4 w-4 mr-2" />
+											Save {extractedStudentData.length} Student Records
+										</>
+									)}
+								</Button>
+							)}
 						</div>
+					)}
+
+					{syncFileId && (extractedData.length > 0 || extractedStudentData.length > 0) && (
+						<Button
+							onClick={handleSyncSave}
+							disabled={!user || isProcessing}
+							className="w-full bg-green-600 hover:bg-green-700"
+						>
+							{!user ? (
+								"Login Required"
+							) : isProcessing ? (
+								<>
+									<Loader2 className="h-4 w-4 animate-spin mr-2" />
+									Processing...
+								</>
+							) : (
+								<>
+									<CheckCircle className="h-4 w-4 mr-2" />
+									Save Synced Data ({extractedData.length} entries, {extractedStudentData.length} student records)
+								</>
+							)}
+						</Button>
 					)}
 
 					{/* Upload Button */}
