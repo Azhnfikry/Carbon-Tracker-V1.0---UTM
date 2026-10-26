@@ -95,6 +95,14 @@ interface FinancialReportingPeriod {
   revenue: string;
 }
 
+interface OrganizationMetric {
+  id: string;
+  name: string;
+  value: string;
+  unit: string;
+  notes: string;
+}
+
 interface CompanyInfo {
   id?: string;
   user_id: string;
@@ -113,6 +121,7 @@ interface CompanyInfo {
   business_description: string;
   reporting_period: string;
   financial_reporting_periods: string;
+  organization_metrics: string;
   scope3_activities: string;
   excluded_activities: string;
   base_year: string;
@@ -140,6 +149,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
   const [selectedScope3, setSelectedScope3] = useState<Set<string>>(new Set());
   const [excludedActivities, setExcludedActivities] = useState<Map<string, string>>(new Map());
   const [financialPeriods, setFinancialPeriods] = useState<FinancialReportingPeriod[]>([]);
+  const [organizationMetrics, setOrganizationMetrics] = useState<OrganizationMetric[]>([]);
   const [userInfo, setUserInfo] = useState<UserInfo>({
     full_name: '',
     job_title: '',
@@ -163,6 +173,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     business_description: '',
     reporting_period: '',
     financial_reporting_periods: '',
+    organization_metrics: '',
     scope3_activities: '',
     excluded_activities: '',
     base_year: new Date().getFullYear().toString(),
@@ -266,6 +277,64 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
     syncFinancialPeriods(financialPeriods.filter((period) => period.id !== periodId));
   };
 
+  const parseOrganizationMetrics = (metricsStr: string): OrganizationMetric[] => {
+    if (!metricsStr) return [];
+    try {
+      const parsed = JSON.parse(metricsStr);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((metric) => ({
+        id: metric.id || createFinancialPeriodId(),
+        name: metric.name || metric.metric || '',
+        value: metric.value?.toString() || '',
+        unit: metric.unit || '',
+        notes: metric.notes || metric.description || '',
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const serializeOrganizationMetrics = (metrics: OrganizationMetric[]): string => {
+    return JSON.stringify(metrics);
+  };
+
+  const syncOrganizationMetrics = (metrics: OrganizationMetric[]) => {
+    setOrganizationMetrics(metrics);
+    setFormData((prev) => ({
+      ...prev,
+      organization_metrics: serializeOrganizationMetrics(metrics),
+    }));
+  };
+
+  const handleAddOrganizationMetric = () => {
+    syncOrganizationMetrics([
+      ...organizationMetrics,
+      {
+        id: createFinancialPeriodId(),
+        name: '',
+        value: '',
+        unit: '',
+        notes: '',
+      },
+    ]);
+  };
+
+  const handleOrganizationMetricChange = (
+    metricId: string,
+    field: keyof Omit<OrganizationMetric, 'id'>,
+    value: string
+  ) => {
+    syncOrganizationMetrics(
+      organizationMetrics.map((metric) =>
+        metric.id === metricId ? { ...metric, [field]: value } : metric
+      )
+    );
+  };
+
+  const handleRemoveOrganizationMetric = (metricId: string) => {
+    syncOrganizationMetrics(organizationMetrics.filter((metric) => metric.id !== metricId));
+  };
+
   // Handle Scope 3 checkbox changes
   const handleScope3Change = (categoryId: string, checked: boolean) => {
     const newSelected = new Set(selectedScope3);
@@ -356,6 +425,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
 
         if (data) {
           const loadedFinancialPeriods = parseFinancialPeriods(data.financial_reporting_periods);
+          const loadedOrganizationMetrics = parseOrganizationMetrics(data.organization_metrics);
           setFormData({
             ...data,
             facility_count: data.facility_count?.toString() === '2' ? '2' : '1',
@@ -369,8 +439,10 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
             facility_2_state: data.facility_2_state || '',
             base_year: data.base_year?.toString() || new Date().getFullYear().toString(),
             financial_reporting_periods: data.financial_reporting_periods || '',
+            organization_metrics: data.organization_metrics || '',
           });
           setFinancialPeriods(loadedFinancialPeriods);
+          setOrganizationMetrics(loadedOrganizationMetrics);
           setSelectedScope3(parseScope3Activities(data.scope3_activities));
           setExcludedActivities(parseExcludedActivities(data.excluded_activities));
         }
@@ -433,6 +505,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
         business_description: formData.business_description,
         reporting_period: formData.reporting_period,
         financial_reporting_periods: serializeFinancialPeriods(financialPeriods),
+        organization_metrics: serializeOrganizationMetrics(organizationMetrics),
         scope3_activities: formData.scope3_activities,
         excluded_activities: formData.excluded_activities,
         base_year: parseInt(formData.base_year) || new Date().getFullYear(),
@@ -955,12 +1028,24 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
 
               <div>
                 <p className="font-bold text-foreground">Organization Metrics</p>
-                <p className="mt-1 text-foreground">
-                  Revenue: {formatMetricNumber(primaryFinancialPeriod?.revenue)}
-                </p>
-                <p className="text-foreground">
-                  Facilities: {formData.facility_count || 'N/A'}
-                </p>
+                <div className="mt-1 space-y-1 text-foreground">
+                  {organizationMetrics.length > 0 ? (
+                    organizationMetrics.slice(0, 3).map((metric) => (
+                      <p key={metric.id}>
+                        {metric.name || 'Metric'}: {formatMetricNumber(metric.value)}
+                        {metric.unit ? ` ${metric.unit}` : ''}
+                      </p>
+                    ))
+                  ) : (
+                    <>
+                      <p>Revenue: {formatMetricNumber(primaryFinancialPeriod?.revenue)}</p>
+                      <p>Facilities: {formData.facility_count || 'N/A'}</p>
+                    </>
+                  )}
+                  {organizationMetrics.length > 3 && (
+                    <p>{organizationMetrics.length - 3} more metric(s)</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1042,6 +1127,93 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
                             size="icon"
                             onClick={() => handleRemoveFinancialPeriod(period.id)}
                             aria-label="Remove sustainability reporting period"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-slate-700">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <Label className="text-base font-semibold">Organization Metrics</Label>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Add operational metrics used for intensity and context reporting.
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" onClick={handleAddOrganizationMetric}>
+                  <Plus className="h-4 w-4" />
+                  New metric
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[860px]">
+                  <div className="grid grid-cols-[1.2fr_0.8fr_0.8fr_1.4fr_44px] gap-3 border-b border-gray-200 pb-2 text-sm font-medium text-muted-foreground dark:border-slate-700">
+                    <span>Metric</span>
+                    <span>Value</span>
+                    <span>Unit</span>
+                    <span>Notes</span>
+                    <span className="sr-only">Actions</span>
+                  </div>
+
+                  {organizationMetrics.length === 0 ? (
+                    <div className="py-6 text-sm text-muted-foreground">
+                      No organization metrics added yet.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                      {organizationMetrics.map((metric) => (
+                        <div
+                          key={metric.id}
+                          className="grid grid-cols-[1.2fr_0.8fr_0.8fr_1.4fr_44px] gap-3 py-3"
+                        >
+                          <Input
+                            placeholder="e.g., Students, FTE, Floor area"
+                            value={metric.name}
+                            onChange={(e) =>
+                              handleOrganizationMetricChange(metric.id, 'name', e.target.value)
+                            }
+                            aria-label="Organization metric name"
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0"
+                            value={metric.value}
+                            onChange={(e) =>
+                              handleOrganizationMetricChange(metric.id, 'value', e.target.value)
+                            }
+                            aria-label="Organization metric value"
+                          />
+                          <Input
+                            placeholder="e.g., students"
+                            value={metric.unit}
+                            onChange={(e) =>
+                              handleOrganizationMetricChange(metric.id, 'unit', e.target.value)
+                            }
+                            aria-label="Organization metric unit"
+                          />
+                          <Input
+                            placeholder="Optional context"
+                            value={metric.notes}
+                            onChange={(e) =>
+                              handleOrganizationMetricChange(metric.id, 'notes', e.target.value)
+                            }
+                            aria-label="Organization metric notes"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveOrganizationMetric(metric.id)}
+                            aria-label="Remove organization metric"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
