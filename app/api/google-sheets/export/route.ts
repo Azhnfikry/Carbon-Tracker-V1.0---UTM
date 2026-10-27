@@ -1,75 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSign } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { calculateEmissionSummary } from "@/lib/emission-calculations";
+import { extractGoogleFileId, getGoogleAccessToken, GOOGLE_SCOPES } from "@/lib/google-auth";
 import type { EmissionEntry, StudentCountEntry } from "@/types/emission";
 
 export const runtime = "nodejs";
 
 type SheetRow = Array<string | number>;
-
-const SHEET_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
-
-function base64Url(value: string | Buffer) {
-  return Buffer.from(value)
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-}
-
-function normalizePrivateKey(privateKey: string) {
-  return privateKey.replace(/\\n/g, "\n");
-}
-
-function extractSpreadsheetId(value?: string | null) {
-  if (!value) return process.env.GOOGLE_SHEETS_SPREADSHEET_ID || "";
-  const match = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  return match?.[1] || value.trim();
-}
-
-async function getGoogleAccessToken() {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-  if (!clientEmail || !privateKey) {
-    throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_PRIVATE_KEY in environment variables.");
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: clientEmail,
-    scope: SHEET_SCOPES.join(" "),
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  };
-
-  const unsignedToken = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
-  const signer = createSign("RSA-SHA256");
-  signer.update(unsignedToken);
-  signer.end();
-
-  const signature = signer.sign(normalizePrivateKey(privateKey));
-  const assertion = `${unsignedToken}.${base64Url(signature)}`;
-
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion,
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error_description || data.error || "Failed to authenticate with Google Sheets.");
-  }
-
-  return data.access_token as string;
-}
 
 async function googleSheetsFetch(path: string, accessToken: string, init?: RequestInit) {
   const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`, {
@@ -228,7 +165,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const spreadsheetId = extractSpreadsheetId(body.spreadsheetId);
+    const spreadsheetId = extractGoogleFileId(body.spreadsheetId) || process.env.GOOGLE_SHEETS_SPREADSHEET_ID || "";
 
     if (!spreadsheetId) {
       return NextResponse.json({ error: "Google Sheet URL or spreadsheet ID is required." }, { status: 400 });
@@ -244,7 +181,7 @@ export async function POST(request: NextRequest) {
     if (emissionsError) throw emissionsError;
     if (studentError) throw studentError;
 
-    const accessToken = await getGoogleAccessToken();
+    const accessToken = await getGoogleAccessToken([GOOGLE_SCOPES.sheets]);
     const workbook = await googleSheetsFetch(`${spreadsheetId}?fields=sheets.properties.title`, accessToken);
     const existingSheets = new Set<string>((workbook.sheets || []).map((sheet: any) => sheet.properties.title));
     const tables = buildExportTables((emissions || []) as EmissionEntry[], (studentCounts || []) as StudentCountEntry[], companyInfo);

@@ -56,6 +56,7 @@ type CompanyInfo = {
   business_description?: string;
   reporting_period?: string;
   financial_reporting_periods?: string;
+  organization_metrics?: string;
   base_year?: number;
   base_year_rationale?: string;
 };
@@ -65,6 +66,14 @@ type FinancialReportingPeriod = {
   from?: string;
   to?: string;
   revenue?: string | number;
+};
+
+type OrganizationMetric = {
+  id?: string;
+  name?: string;
+  value?: string | number;
+  unit?: string;
+  notes?: string;
 };
 
 type EmissionByGas = {
@@ -648,6 +657,23 @@ export function EmissionReport() {
     }
   };
 
+  const parseOrganizationMetrics = (metricsStr?: string): OrganizationMetric[] => {
+    if (!metricsStr) return [];
+    try {
+      const parsed = JSON.parse(metricsStr);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((metric) => ({
+        id: metric.id,
+        name: metric.name || metric.metric || '',
+        value: metric.value,
+        unit: metric.unit || '',
+        notes: metric.notes || metric.description || '',
+      }));
+    } catch {
+      return [];
+    }
+  };
+
   const formatReportDate = (date?: string): string => {
     if (!date) return 'N/A';
     const parsed = new Date(date);
@@ -675,6 +701,9 @@ export function EmissionReport() {
   const financialReportingPeriods = parseFinancialReportingPeriods(
     reportData.company_info?.financial_reporting_periods
   );
+  const savedOrganizationMetrics = parseOrganizationMetrics(
+    reportData.company_info?.organization_metrics
+  );
   const primaryReportingPeriod = financialReportingPeriods[0];
   const reportingYear =
     getYearFromDate(primaryReportingPeriod?.from) ||
@@ -684,20 +713,26 @@ export function EmissionReport() {
   const reportingPeriodLabel = primaryReportingPeriod
     ? `From: ${formatReportDate(primaryReportingPeriod.from)}\nTo: ${formatReportDate(primaryReportingPeriod.to)}`
     : reportData.company_info?.reporting_period || `Year ${reportData.inventory_year}`;
-  const organizationMetrics = [
-    {
-      label: 'Revenue',
-      value: primaryReportingPeriod ? formatRevenue(primaryReportingPeriod.revenue) : 'N/A',
-    },
-    {
-      label: 'Latest Student Count',
-      value: outlook ? formatCompactNumber(outlook.analytics.latest_student_count) : 'N/A',
-    },
-    {
-      label: 'Emissions Intensity',
-      value: outlook ? `${outlook.analytics.per_student_tco2e.toFixed(4)} tCO2e/student` : 'N/A',
-    },
-  ];
+  const organizationMetrics =
+    savedOrganizationMetrics.length > 0
+      ? savedOrganizationMetrics.map((metric) => ({
+          label: metric.name || 'Metric',
+          value: `${formatRevenue(metric.value)}${metric.unit ? ` ${metric.unit}` : ''}`,
+        }))
+      : [
+          {
+            label: 'Revenue',
+            value: primaryReportingPeriod ? formatRevenue(primaryReportingPeriod.revenue) : 'N/A',
+          },
+          {
+            label: 'Latest Student Count',
+            value: outlook ? formatCompactNumber(outlook.analytics.latest_student_count) : 'N/A',
+          },
+          {
+            label: 'Emissions Intensity',
+            value: outlook ? `${outlook.analytics.per_student_tco2e.toFixed(4)} tCO2e/student` : 'N/A',
+          },
+        ];
   const confidenceLabel =
     outlook?.model_confidence === 'high'
       ? 'High confidence'
