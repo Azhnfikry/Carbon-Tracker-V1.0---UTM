@@ -1143,7 +1143,7 @@ export function CompanyInfoForm({ user }: CompanyInfoFormProps) {
                 <div>
                   <Label className="text-base font-semibold">Organization Metrics</Label>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Add operational metrics used for intensity and context reporting.
+                    Add operational metrics for context reporting.
                   </p>
                 </div>
                 <Button type="button" variant="ghost" onClick={handleAddOrganizationMetric}>

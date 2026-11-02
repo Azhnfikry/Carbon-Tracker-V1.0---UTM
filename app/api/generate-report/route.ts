@@ -29,11 +29,6 @@ type ScopeGasTotals = {
   sf6_mt: number;
 };
 
-type StudentCountRow = {
-  date: string | null;
-  students: number | string | null;
-};
-
 const DEFAULT_SCENARIO_INPUTS: ScenarioInputs = {
   solarAdoptionPercent: 30,
   evFleetPercent: 20,
@@ -181,16 +176,6 @@ export async function GET(request: NextRequest) {
       console.warn('Profile fetch warning:', profileError.message);
     }
 
-    const { data: studentCounts, error: studentCountsError } = await supabase
-      .from('student_counts')
-      .select('date, students')
-      .eq('user_id', user.id)
-      .order('date', { ascending: true });
-
-    if (studentCountsError) {
-      console.warn('Student counts fetch warning:', studentCountsError.message);
-    }
-
     const processedEmissions = (emissions as EmissionRow[]).map((emission) => {
       const totalEmissions = toNumber(
         emission.co2_equivalent ??
@@ -211,6 +196,14 @@ export async function GET(request: NextRequest) {
 
     console.log('Processed emissions count:', processedEmissions.length);
 
+    // Inventory figures cover the requested calendar year (or every year when none is given);
+    // the outlook and forecast sections always use the full history.
+    const yearParam = request.nextUrl.searchParams.get('year');
+    const reportYear = yearParam && /^\d{4}$/.test(yearParam) ? yearParam : null;
+    const isInReportYear = (entry: { date?: string | null; created_at?: string | null }) =>
+      !reportYear || String(entry.date || entry.created_at || '').startsWith(reportYear);
+    const inventoryEmissions = processedEmissions.filter(isInReportYear);
+
     let companyInfo = null;
     const { data: companyData, error: companyError } = await supabase
       .from('company_info')
@@ -225,7 +218,7 @@ export async function GET(request: NextRequest) {
     }
 
     const calculateScopeGasTotals = (scope: number): ScopeGasTotals => {
-      const scopeEmissions = processedEmissions.filter((e) => e.scope === scope);
+      const scopeEmissions = inventoryEmissions.filter((e) => e.scope === scope);
 
       return {
         mtco2e: round2(
@@ -267,23 +260,6 @@ export async function GET(request: NextRequest) {
       parsed_date: new Date(emission.date || emission.created_at || ''),
     }));
 
-    const sortedStudentCounts = ((studentCounts || []) as StudentCountRow[])
-      .map((entry) => ({
-        date: entry.date || '',
-        students: toNumber(entry.students),
-      }))
-      .filter((entry) => entry.date)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    const getStudentCountForMonth = (monthStart: Date) => {
-      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getTime();
-      const latestForMonth = sortedStudentCounts
-        .filter((entry) => new Date(entry.date).getTime() <= monthEnd)
-        .at(-1);
-
-      return latestForMonth?.students || sortedStudentCounts.at(-1)?.students || 0;
-    };
-
     const sumEmissionsForDateRange = (from: Date, to?: Date) =>
       datedEmissions
         .filter((entry) => {
@@ -307,7 +283,7 @@ export async function GET(request: NextRequest) {
         : 0;
 
     const activityMap = new Map<string, number>();
-    processedEmissions.forEach((entry) => {
+    inventoryEmissions.forEach((entry) => {
       const label = entry.activity_type || entry.category || 'Uncategorized';
       activityMap.set(label, (activityMap.get(label) || 0) + entry.total_emissions);
     });
@@ -365,7 +341,7 @@ export async function GET(request: NextRequest) {
       count: number;
     }>();
 
-    datedEmissions.forEach((entry) => {
+    datedEmissions.filter(isInReportYear).forEach((entry) => {
       if (Number.isNaN(entry.parsed_date.getTime())) return;
 
       const monthStart = new Date(entry.parsed_date.getFullYear(), entry.parsed_date.getMonth(), 1);
@@ -391,28 +367,16 @@ export async function GET(request: NextRequest) {
 
     const monthlyTrend = Array.from(monthlyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([monthKey, data]) => {
-        const students = getStudentCountForMonth(data.monthStart);
-        const total = round2(data.total);
-
-        return {
-          monthKey,
-          month: MONTH_LABEL_FORMATTER.format(data.monthStart),
-          total,
-          scope1: round2(data.scope1),
-          scope2: round2(data.scope2),
-          scope3: round2(data.scope3),
-          count: data.count,
-          students,
-          intensity: students > 0 ? Number(((data.total / 1000) / students).toFixed(6)) : null,
-          average: data.count > 0 ? round2(data.total / data.count) : 0,
-        };
-      });
-
-    const latestStudentCount = sortedStudentCounts.at(-1)?.students || 0;
-    const totalTco2e = totalEmissions / 1000;
-    const overallIntensity =
-      latestStudentCount > 0 ? Number((totalTco2e / latestStudentCount).toFixed(6)) : 0;
+      .map(([monthKey, data]) => ({
+        monthKey,
+        month: MONTH_LABEL_FORMATTER.format(data.monthStart),
+        total: round2(data.total),
+        scope1: round2(data.scope1),
+        scope2: round2(data.scope2),
+        scope3: round2(data.scope3),
+        count: data.count,
+        average: data.count > 0 ? round2(data.total / data.count) : 0,
+      }));
 
     const scenario = buildScenarioAnalysis({
       forecast: forecastResult.forecast,
@@ -446,6 +410,7 @@ export async function GET(request: NextRequest) {
 
     const reportData = {
       generated_at: new Date().toLocaleString(),
+      inventory_year: reportYear ? Number(reportYear) : undefined,
       company_info: {
         name: companyInfo?.company_name || 'N/A',
         description: companyInfo?.company_description || '',
@@ -516,18 +481,15 @@ export async function GET(request: NextRequest) {
           })),
         },
         analytics: {
-          total_entries: processedEmissions.length,
-          latest_student_count: latestStudentCount,
-          per_student_tco2e: overallIntensity,
-          average_per_entry: processedEmissions.length > 0
-            ? round2(totalEmissions / processedEmissions.length)
+          total_entries: inventoryEmissions.length,
+          average_per_entry: inventoryEmissions.length > 0
+            ? round2(totalEmissions / inventoryEmissions.length)
             : 0,
           months_tracked: monthlyTrend.length,
           category_count: categoryData.length,
           highest_category: categoryData[0] || null,
           category_breakdown: categoryData,
           monthly_trend: monthlyTrend,
-          intensity_trend: monthlyTrend.filter((point) => point.intensity !== null),
         },
       },
     };

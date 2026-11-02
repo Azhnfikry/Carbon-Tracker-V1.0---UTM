@@ -22,18 +22,17 @@ import {
 	AreaChart,
 	Area,
 } from "recharts";
-import { TrendingUp, TrendingDown, Activity, Calendar, BarChart3, PieChartIcon, LineChartIcon, Users } from "lucide-react";
-import type { EmissionEntry, EmissionSummary, StudentCountEntry } from "@/types/emission";
+import { TrendingUp, TrendingDown, Activity, Calendar, BarChart3, PieChartIcon, LineChartIcon } from "lucide-react";
+import type { EmissionEntry, EmissionSummary } from "@/types/emission";
 import { calculateEmissionSummary, formatEmissions } from "@/lib/emission-calculations";
 import { useState } from "react";
 
 interface ChartsPageProps {
 	entries: EmissionEntry[];
 	summary: EmissionSummary;
-	studentEntries: StudentCountEntry[];
 }
 
-export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps) {
+export function ChartsPage({ entries, summary }: ChartsPageProps) {
 	const [timeRange, setTimeRange] = useState("12m");
 	const [chartType, setChartType] = useState("area");
 	const [selectedFacility, setSelectedFacility] = useState("all");
@@ -91,38 +90,17 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 		>
 	);
 
-	const sortedStudentEntries = [...studentEntries].sort(
-		(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-	);
-
-	const getStudentCountForMonth = (monthDateTime: number) => {
-		const monthDate = new Date(monthDateTime);
-		const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getTime();
-		const latestForMonth = sortedStudentEntries
-			.filter((entry) => new Date(entry.date).getTime() <= monthEnd)
-			.at(-1);
-
-		return latestForMonth?.students || sortedStudentEntries.at(-1)?.students || 0;
-	};
-
 	const trendData = Object.entries(monthlyData)
-		.map(([month, data]) => {
-			const students = getStudentCountForMonth(data.dateTime);
-			return {
-				month,
-				total: Number(data.total.toFixed(2)),
-				scope1: Number(data.scope1.toFixed(2)),
-				scope2: Number(data.scope2.toFixed(2)),
-				scope3: Number(data.scope3.toFixed(2)),
-				students,
-				intensity: students > 0 ? Number(((data.total / 1000) / students).toFixed(6)) : null,
-				count: data.count,
-				average: Number((data.total / data.count).toFixed(2)),
-			};
-		})
+		.map(([month, data]) => ({
+			month,
+			total: Number(data.total.toFixed(2)),
+			scope1: Number(data.scope1.toFixed(2)),
+			scope2: Number(data.scope2.toFixed(2)),
+			scope3: Number(data.scope3.toFixed(2)),
+			count: data.count,
+			average: Number((data.total / data.count).toFixed(2)),
+		}))
 		.sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
-
-	const intensityData = trendData.filter((item) => item.intensity !== null);
 
 	const categoryData = Object.entries(filteredSummary.byCategory)
 		.map(([category, value]) => ({
@@ -154,8 +132,6 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 	const previousMonth = trendData[trendData.length - 2]?.total || 0;
 	const monthlyChange = currentMonth - previousMonth;
 	const monthlyChangePercent = previousMonth > 0 ? ((monthlyChange / previousMonth) * 100).toFixed(1) : "0";
-	const latestStudentCount = [...studentEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.students || 0;
-	const overallIntensity = latestStudentCount > 0 ? (filteredSummary.totalEmissions / 1000) / latestStudentCount : 0;
 	const facilityData = Array.from(
 		entries.reduce((acc, entry) => {
 			const facility = entry.facility || "Unassigned";
@@ -212,7 +188,7 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 				</div>
 			</div>
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				<Card className="bg-card border-border">
 					<CardContent className="p-6">
 						<div className="flex items-center justify-between">
@@ -238,27 +214,6 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
-					<CardContent className="p-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-muted-foreground">Per Student</p>
-								<div className="text-2xl font-bold text-foreground">
-									{overallIntensity.toFixed(4)}
-									<span className="text-sm font-normal text-muted-foreground ml-1">tCO2e/student</span>
-								</div>
-							</div>
-							<div className="p-3 bg-chart-5/10 rounded-full">
-								<Users className="h-5 w-5 text-chart-5" />
-							</div>
-						</div>
-						<div className="mt-4">
-							<div className="text-sm text-muted-foreground">
-								{latestStudentCount > 0 ? `${latestStudentCount.toLocaleString()} latest students` : "No student data"}
-							</div>
-						</div>
-					</CardContent>
-				</Card>
 
 				<Card className="bg-card border-border">
 					<CardContent className="p-6">
@@ -544,72 +499,6 @@ export function ChartsPage({ entries, summary, studentEntries }: ChartsPageProps
 											<BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
 											<p className="text-lg font-medium">No trend data available</p>
 											<p className="text-sm">Add emission entries to see trend analysis</p>
-										</div>
-									</div>
-								)}
-							</div>
-						</CardContent>
-					</Card>
-
-					<Card className="bg-card border-border">
-						<CardHeader className="pb-4">
-							<CardTitle className="text-lg font-medium">Emissions Intensity by Students</CardTitle>
-							<p className="text-sm text-muted-foreground mt-1">Monthly overall GHG divided by student count</p>
-						</CardHeader>
-						<CardContent>
-							<div className="h-80">
-								{intensityData.length > 0 ? (
-									<ResponsiveContainer width="100%" height="100%">
-										<LineChart data={intensityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-											<CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-											<XAxis
-												dataKey="month"
-												tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-												axisLine={{ stroke: "hsl(var(--border))" }}
-											/>
-											<YAxis
-												tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-												axisLine={{ stroke: "hsl(var(--border))" }}
-												label={{
-													value: "tCO2e / student",
-													angle: -90,
-													position: "insideLeft",
-													style: { textAnchor: "middle", fill: "hsl(var(--muted-foreground))" },
-												}}
-											/>
-											<Tooltip
-												formatter={(value, name, props) => [
-													`${Number(value).toFixed(6)} tCO2e/student`,
-													`Students: ${props.payload.students.toLocaleString()}`,
-												]}
-												labelStyle={{ color: "hsl(var(--foreground))" }}
-												contentStyle={{
-													backgroundColor: "#ffffff",
-													border: "1px solid hsl(var(--border))",
-													borderRadius: "8px",
-													color: "#000000",
-													boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-												}}
-											/>
-											<Legend />
-											<Line
-												type="monotone"
-												dataKey="intensity"
-												name="tCO2e/student"
-												strokeWidth={3}
-												dot={{ strokeWidth: 2, r: 4, fill: "#14b8a6" }}
-												activeDot={{ r: 6, strokeWidth: 2 }}
-												stroke="#14b8a6"
-												connectNulls
-											/>
-										</LineChart>
-									</ResponsiveContainer>
-								) : (
-									<div className="flex items-center justify-center h-full text-muted-foreground">
-										<div className="text-center">
-											<Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-											<p className="text-lg font-medium">No student intensity data available</p>
-											<p className="text-sm">Add student numbers for months with GHG entries to see tCO2e/student</p>
 										</div>
 									</div>
 								)}

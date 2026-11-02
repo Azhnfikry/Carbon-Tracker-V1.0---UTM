@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { YearSelect } from '@/components/year-select';
 import {
   Bar,
   BarChart,
@@ -36,7 +37,6 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
-  Users,
   Zap,
 } from 'lucide-react';
 
@@ -133,8 +133,6 @@ type OutlookData = {
   };
   analytics: {
     total_entries: number;
-    latest_student_count: number;
-    per_student_tco2e: number;
     average_per_entry: number;
     months_tracked: number;
     category_count: number;
@@ -148,20 +146,6 @@ type OutlookData = {
       scope2: number;
       scope3: number;
       count: number;
-      students: number;
-      intensity: number | null;
-      average: number;
-    }>;
-    intensity_trend: Array<{
-      monthKey: string;
-      month: string;
-      total: number;
-      scope1: number;
-      scope2: number;
-      scope3: number;
-      count: number;
-      students: number;
-      intensity: number | null;
       average: number;
     }>;
   };
@@ -194,7 +178,15 @@ type ReportData = {
   outlook?: OutlookData;
 };
 
-export function EmissionReport() {
+interface EmissionReportProps {
+  // "overall" or a four-digit calendar year, shared with the Overview year filter
+  year?: string;
+  years?: string[];
+  onYearChange?: (year: string) => void;
+}
+
+export function EmissionReport({ year = 'overall', years = [], onYearChange }: EmissionReportProps = {}) {
+  const selectedYear = /^\d{4}$/.test(year) ? year : null;
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +196,7 @@ export function EmissionReport() {
 
   useEffect(() => {
     fetchReportData();
-  }, []);
+  }, [selectedYear]);
 
   const fetchReportData = async () => {
     try {
@@ -212,7 +204,7 @@ export function EmissionReport() {
       setLoading(true);
 
       console.log('Fetching report data...');
-      const response = await fetch('/api/generate-report', {
+      const response = await fetch(`/api/generate-report${selectedYear ? `?year=${selectedYear}` : ''}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -533,6 +525,10 @@ export function EmissionReport() {
     });
   };
 
+  // Emissions are stored in kg CO2e; the inventory sections report metric tons.
+  const formatTonnes = (kg: number | undefined, decimals: number = 2): string =>
+    kg === undefined ? 'N/A' : formatNumber(kg / 1000, decimals);
+
   const downloadWord = async () => {
     if (!reportRef.current) {
       setError('Report not ready');
@@ -704,15 +700,22 @@ export function EmissionReport() {
   const savedOrganizationMetrics = parseOrganizationMetrics(
     reportData.company_info?.organization_metrics
   );
-  const primaryReportingPeriod = financialReportingPeriods[0];
+  // With a year selected, the figures cover that calendar year, so the period labels follow it
+  // and revenue comes from the financial period starting in that year when one exists.
+  const primaryReportingPeriod =
+    (selectedYear && financialReportingPeriods.find((period) => String(getYearFromDate(period.from)) === selectedYear)) ||
+    financialReportingPeriods[0];
   const reportingYear =
+    selectedYear ||
     getYearFromDate(primaryReportingPeriod?.from) ||
     reportData.company_info?.reporting_period?.match(/\b(20\d{2}|19\d{2})\b/)?.[0] ||
     reportData.inventory_year ||
     'N/A';
-  const reportingPeriodLabel = primaryReportingPeriod
-    ? `From: ${formatReportDate(primaryReportingPeriod.from)}\nTo: ${formatReportDate(primaryReportingPeriod.to)}`
-    : reportData.company_info?.reporting_period || `Year ${reportData.inventory_year}`;
+  const reportingPeriodLabel = selectedYear
+    ? `From: ${formatReportDate(`${selectedYear}-01-01`)}\nTo: ${formatReportDate(`${selectedYear}-12-31`)}`
+    : primaryReportingPeriod
+      ? `From: ${formatReportDate(primaryReportingPeriod.from)}\nTo: ${formatReportDate(primaryReportingPeriod.to)}`
+      : reportData.company_info?.reporting_period || `Year ${reportData.inventory_year}`;
   const organizationMetrics =
     savedOrganizationMetrics.length > 0
       ? savedOrganizationMetrics.map((metric) => ({
@@ -723,14 +726,6 @@ export function EmissionReport() {
           {
             label: 'Revenue',
             value: primaryReportingPeriod ? formatRevenue(primaryReportingPeriod.revenue) : 'N/A',
-          },
-          {
-            label: 'Latest Student Count',
-            value: outlook ? formatCompactNumber(outlook.analytics.latest_student_count) : 'N/A',
-          },
-          {
-            label: 'Emissions Intensity',
-            value: outlook ? `${outlook.analytics.per_student_tco2e.toFixed(4)} tCO2e/student` : 'N/A',
           },
         ];
   const confidenceLabel =
@@ -785,9 +780,12 @@ export function EmissionReport() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">GHG Emissions Inventory Report</h2>
-          <p className="text-muted-foreground text-sm">Scope 1, 2 & 3 Professional Report</p>
+          <p className="text-muted-foreground text-sm">
+            Scope 1, 2 & 3 Professional Report · {selectedYear ? `January – December ${selectedYear}` : 'All recorded years'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
+          {onYearChange && <YearSelect value={selectedYear || 'overall'} years={years} onChange={onYearChange} />}
           <Button
             onClick={downloadWord}
             disabled={downloadingWord}
@@ -1010,7 +1008,7 @@ export function EmissionReport() {
           {/* Total Emissions Headline */}
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-2 border-green-600 rounded-lg p-6 mb-6">
             <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase">Total GHG Emissions (All Scopes)</p>
-            <p className="text-5xl font-bold text-green-700 dark:text-green-400 mt-2">{formatNumber(reportData.total_emissions)}</p>
+            <p className="text-5xl font-bold text-green-700 dark:text-green-400 mt-2">{formatTonnes(reportData.total_emissions)}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">metric tons CO₂e</p>
           </div>
 
@@ -1023,12 +1021,12 @@ export function EmissionReport() {
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Total</p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatNumber(reportData.scope_1_total)}</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatTonnes(reportData.scope_1_total)}</p>
                 </div>
                 {reportData.emissions?.scope1 && reportData.emissions.scope1.co2_mt > 0 && (
                   <div className="pt-2 border-t border-red-200">
                     <p className="text-xs text-gray-500 dark:text-gray-400">CO₂</p>
-                    <p className="text-sm text-red-600 dark:text-red-400">{formatNumber(reportData.emissions.scope1.co2_mt)} MT</p>
+                    <p className="text-sm text-red-600 dark:text-red-400">{formatTonnes(reportData.emissions.scope1.co2_mt)} MT</p>
                   </div>
                 )}
               </div>
@@ -1041,12 +1039,12 @@ export function EmissionReport() {
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Total</p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{formatNumber(reportData.scope_2_total)}</p>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{formatTonnes(reportData.scope_2_total)}</p>
                 </div>
                 {reportData.emissions?.scope2 && reportData.emissions.scope2.co2_mt > 0 && (
                   <div className="pt-2 border-t border-amber-200">
                     <p className="text-xs text-gray-500 dark:text-gray-400">CO₂</p>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">{formatNumber(reportData.emissions.scope2.co2_mt)} MT</p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400">{formatTonnes(reportData.emissions.scope2.co2_mt)} MT</p>
                   </div>
                 )}
               </div>
@@ -1059,12 +1057,12 @@ export function EmissionReport() {
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Total</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatNumber(reportData.scope_3_total)}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatTonnes(reportData.scope_3_total)}</p>
                 </div>
                 {reportData.emissions?.scope3 && reportData.emissions.scope3.co2_mt > 0 && (
                   <div className="pt-2 border-t border-blue-200">
                     <p className="text-xs text-gray-500 dark:text-gray-400">CO₂</p>
-                    <p className="text-sm text-blue-600 dark:text-blue-400">{formatNumber(reportData.emissions.scope3.co2_mt)} MT</p>
+                    <p className="text-sm text-blue-600 dark:text-blue-400">{formatTonnes(reportData.emissions.scope3.co2_mt)} MT</p>
                   </div>
                 )}
               </div>
@@ -1085,6 +1083,7 @@ export function EmissionReport() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white border-b-3 border-green-600 pb-3 mb-6">
               3. GHG EMISSIONS BY GAS TYPE
             </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 -mt-3 mb-4">All values in metric tons (t)</p>
 
             <div className="space-y-4">
               {/* Scope 1 Gases */}
@@ -1093,19 +1092,19 @@ export function EmissionReport() {
                 <div className="grid grid-cols-4 gap-3 text-sm">
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">CO₂</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope1?.co2_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope1?.co2_mt || 0)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">CH₄</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope1?.ch4_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope1?.ch4_mt || 0, 4)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">N₂O</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope1?.n2o_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope1?.n2o_mt || 0, 4)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">Total CO₂e</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope1?.mtco2e || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope1?.mtco2e || 0)}</p>
                   </div>
                 </div>
               </div>
@@ -1116,19 +1115,19 @@ export function EmissionReport() {
                 <div className="grid grid-cols-4 gap-3 text-sm">
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">CO₂</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope2?.co2_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope2?.co2_mt || 0)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">CH₄</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope2?.ch4_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope2?.ch4_mt || 0, 4)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">N₂O</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope2?.n2o_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope2?.n2o_mt || 0, 4)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">Total CO₂e</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope2?.mtco2e || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope2?.mtco2e || 0)}</p>
                   </div>
                 </div>
               </div>
@@ -1139,19 +1138,19 @@ export function EmissionReport() {
                 <div className="grid grid-cols-4 gap-3 text-sm">
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">CO₂</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope3?.co2_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope3?.co2_mt || 0)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">CH₄</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope3?.ch4_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope3?.ch4_mt || 0, 4)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">N₂O</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope3?.n2o_mt || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope3?.n2o_mt || 0, 4)}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-slate-900 p-3 rounded">
                     <p className="text-xs text-gray-600 dark:text-gray-400">Total CO₂e</p>
-                    <p className="font-bold text-gray-900 dark:text-white">{formatNumber(reportData.emissions.scope3?.mtco2e || 0)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{formatTonnes(reportData.emissions.scope3?.mtco2e || 0)}</p>
                   </div>
                 </div>
               </div>
@@ -1473,7 +1472,7 @@ export function EmissionReport() {
               <section className="space-y-4 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
                 <div>
                   <h3 className="mb-3 text-sm font-bold uppercase text-gray-900 dark:text-white">Analytics & Insights</h3>
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Total Entries</p>
@@ -1481,22 +1480,6 @@ export function EmissionReport() {
                       </div>
                       <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{outlook.analytics.total_entries}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400">{outlook.analytics.category_count} categories</p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Per Student</p>
-                        <Users className="h-4 w-4 text-rose-600" />
-                      </div>
-                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{outlook.analytics.per_student_tco2e.toFixed(4)}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">tCO2e/student</p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Students</p>
-                        <Users className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatCompactNumber(outlook.analytics.latest_student_count)}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">latest count</p>
                     </div>
                     <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
                       <div className="flex items-center justify-between">
@@ -1535,29 +1518,16 @@ export function EmissionReport() {
                   </ResponsiveContainer>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="h-72 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={outlook.analytics.intensity_trend} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="month" />
-                        <YAxis tickFormatter={(value) => `${Number(value).toFixed(4)}`} />
-                        <Tooltip formatter={(value) => `${Number(value).toFixed(6)} tCO2e/student`} />
-                        <Line type="monotone" dataKey="intensity" name="tCO2e/student" stroke="#14b8a6" strokeWidth={3} dot={{ r: 3 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="h-72 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={outlook.analytics.category_breakdown.slice(0, 8)} margin={{ top: 8, right: 16, left: 4, bottom: 48 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={72} />
-                        <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
-                        <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
-                        <Bar dataKey="value" name="Emissions" fill="#0f766e" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                <div className="h-72 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={outlook.analytics.category_breakdown.slice(0, 8)} margin={{ top: 8, right: 16, left: 4, bottom: 48 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={72} />
+                      <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}`} />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg CO2e`} />
+                      <Bar dataKey="value" name="Emissions" fill="#0f766e" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </section>
             </div>
