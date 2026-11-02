@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { YearSelect } from '@/components/year-select';
+import { InventoryReportPanel } from '@/components/inventory-report-panel';
 import {
   Bar,
   BarChart,
@@ -27,9 +27,7 @@ import {
   Calendar,
   Car,
   CheckCircle2,
-  Download,
   Factory,
-  FileText,
   Lightbulb,
   Receipt,
   SlidersHorizontal,
@@ -190,8 +188,6 @@ export function EmissionReport({ year = 'overall', years = [], onYearChange }: E
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadingWord, setDownloadingWord] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -288,192 +284,6 @@ export function EmissionReport({ year = 'overall', years = [], onYearChange }: E
     }
   };
 
-  const downloadPDF = async () => {
-    if (!reportRef.current) {
-      setError('Report not ready');
-      return;
-    }
-
-    try {
-      setDownloading(true);
-      setError(null);
-
-      const printContent = reportRef.current.innerHTML;
-      const printWindow = window.open('', '', 'width=1000,height=1400');
-      
-      if (!printWindow) {
-        throw new Error('Could not open print window. Check your browser settings.');
-      }
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>GHG Emissions Inventory Report</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
-              padding: 40px; 
-              background: white; 
-              color: #1f2937;
-              line-height: 1.6;
-            }
-            .space-y-6 > * + * { margin-top: 1.5rem; }
-            .space-y-8 > * + * { margin-top: 2rem; }
-            .space-y-4 > * + * { margin-top: 1rem; }
-            .space-y-3 > * + * { margin-top: 0.75rem; }
-            
-            h1 { font-size: 36px; font-weight: bold; margin-bottom: 10px; }
-            h2 { font-size: 24px; font-weight: bold; border-bottom: 4px solid #16a34a; padding-bottom: 12px; margin-bottom: 24px; }
-            h3 { font-size: 16px; font-weight: 600; }
-            
-            p { font-size: 14px; }
-            .text-xs { font-size: 12px; }
-            .text-sm { font-size: 13px; }
-            .text-lg { font-size: 16px; }
-            .text-2xl { font-size: 20px; }
-            .text-5xl { font-size: 48px; }
-            
-            .font-bold { font-weight: bold; }
-            .font-semibold { font-weight: 600; }
-            .uppercase { text-transform: uppercase; }
-            
-            .text-gray-600 { color: #4b5563; }
-            .text-gray-400 { color: #9ca3af; }
-            .text-gray-500 { color: #6b7280; }
-            .text-gray-900 { color: #1f2937; }
-            .text-green-700 { color: #15803d; }
-            .text-green-400 { color: #4ade80; }
-            
-            .border-b-4 { border-bottom: 4px solid #16a34a; }
-            .border-b-3 { border-bottom: 3px solid #16a34a; }
-            .border-b { border-bottom: 1px solid #e5e7eb; }
-            .border-t { border-top: 1px solid #e5e7eb; }
-            .border-t-2 { border-top: 2px solid #d1d5db; }
-            .border-r { border-right: 1px solid #e5e7eb; }
-            .border-2 { border: 2px solid #e5e7eb; }
-            .border-red-3 { border: 2px solid #fca5a5; }
-            .border-amber-3 { border: 2px solid #fcd34d; }
-            .border-blue-3 { border: 2px solid #93c5fd; }
-            
-            .pb-3 { padding-bottom: 12px; }
-            .pb-6 { padding-bottom: 24px; }
-            .pt-2 { padding-top: 8px; }
-            .pt-4 { padding-top: 16px; }
-            .pt-6 { padding-top: 24px; }
-            .pt-8 { padding-top: 32px; }
-            .p-3 { padding: 12px; }
-            .p-4 { padding: 16px; }
-            .p-5 { padding: 20px; }
-            .p-6 { padding: 24px; }
-            .p-8 { padding: 32px; }
-            
-            .mb-2 { margin-bottom: 8px; }
-            .mb-3 { margin-bottom: 12px; }
-            .mb-4 { margin-bottom: 16px; }
-            .mb-6 { margin-bottom: 24px; }
-            .mt-2 { margin-top: 8px; }
-            .mt-4 { margin-top: 16px; }
-            .mt-6 { margin-top: 24px; }
-            
-            .bg-red-50 { background: #fef2f2; }
-            .bg-amber-50 { background: #fffbeb; }
-            .bg-blue-50 { background: #eff6ff; }
-            .bg-green-50 { background: #f0fdf4; }
-            .bg-gray-50 { background: #f9fafb; }
-            
-            .rounded { border-radius: 4px; }
-            .rounded-lg { border-radius: 8px; }
-            
-            .grid { display: grid; }
-            .grid-cols-2 { grid-template-columns: 1fr 1fr; gap: 24px; }
-            .grid-cols-3 { grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-            .grid-cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
-            .gap-3 { gap: 12px; }
-            .gap-4 { gap: 16px; }
-            .gap-6 { gap: 24px; }
-            
-            .flex { display: flex; }
-            .flex-col { flex-direction: column; }
-            .items-start { align-items: flex-start; }
-            
-            .text-center { text-align: center; }
-            .justify-between { justify-content: space-between; }
-            .items-center { align-items: center; }
-            .items-start { align-items: flex-start; }
-            .flex-shrink-0 { flex-shrink: 0; }
-            .w-full { width: 100%; }
-            .min-h-16 { min-height: 64px; }
-            .h-72 { height: 288px; }
-            .h-80 { height: 320px; }
-            .h-5 { height: 20px; }
-            .w-5 { width: 20px; }
-            .h-4 { height: 16px; }
-            .w-4 { width: 16px; }
-            .text-red-600 { color: #dc2626; }
-            .text-red-400 { color: #f87171; }
-            .text-amber-600 { color: #d97706; }
-            .text-amber-400 { color: #f59e0b; }
-            .text-blue-600 { color: #2563eb; }
-            .text-blue-400 { color: #60a5fa; }
-            .text-emerald-700 { color: #047857; }
-            .text-emerald-300 { color: #6ee7b7; }
-            .text-emerald-900 { color: #064e3b; }
-            .text-green-900 { color: #14532d; }
-            .text-blue-900 { color: #1e3a8a; }
-            .text-amber-900 { color: #78350f; }
-            .text-purple-600 { color: #9333ea; }
-            .bg-white { background: #ffffff; }
-            .bg-slate-50 { background: #f8fafc; }
-            .bg-slate-900 { background: #0f172a; }
-            .bg-emerald-50 { background: #ecfdf5; }
-            .bg-green-50 { background: #f0fdf4; }
-            .bg-blue-50 { background: #eff6ff; }
-            .bg-amber-50 { background: #fffbeb; }
-            .border-gray-200 { border-color: #e5e7eb; }
-            .border-slate-200 { border-color: #e2e8f0; }
-            .border-slate-700 { border-color: #334155; }
-            .border-emerald-200 { border-color: #a7f3d0; }
-            .border-green-200 { border-color: #bbf7d0; }
-            .border-blue-200 { border-color: #bfdbfe; }
-            .border-amber-200 { border-color: #fde68a; }
-            .border-l-4 { border-left-width: 4px; }
-            .border-red-600 { border-color: #dc2626; }
-            .border-amber-600 { border-color: #d97706; }
-            .border-blue-600 { border-color: #2563eb; }
-            .grid-cols-1 { grid-template-columns: 1fr; gap: 16px; }
-            .grid-cols-5 { grid-template-columns: repeat(5, 1fr); gap: 12px; }
-            .mt-0\.5 { margin-top: 2px; }
-            .mt-1 { margin-top: 4px; }
-            .rounded-full { border-radius: 9999px; }
-            .italic { font-style: italic; }
-            
-            .bg-gradient-to-r { background: linear-gradient(to right, #f0fdf4, #dbeafe); }
-            
-            @media print {
-              body { padding: 20px; }
-              .page-break { page-break-after: always; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent}
-          <script>
-            setTimeout(() => {
-              window.print();
-            }, 100);
-          </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error downloading PDF');
-      setDownloading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -528,113 +338,6 @@ export function EmissionReport({ year = 'overall', years = [], onYearChange }: E
   // Emissions are stored in kg CO2e; the inventory sections report metric tons.
   const formatTonnes = (kg: number | undefined, decimals: number = 2): string =>
     kg === undefined ? 'N/A' : formatNumber(kg / 1000, decimals);
-
-  const downloadWord = async () => {
-    if (!reportRef.current) {
-      setError('Report not ready');
-      return;
-    }
-
-    try {
-      setDownloadingWord(true);
-      setError(null);
-
-      const reportContent = reportRef.current.innerHTML;
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>GHG Emissions Inventory Report</title>
-          <style>
-            body {
-              font-family: Arial, Helvetica, sans-serif;
-              color: #1f2937;
-              line-height: 1.5;
-              margin: 36px;
-              background: #ffffff;
-            }
-            h1 { font-size: 30px; font-weight: 700; margin: 0 0 8px; }
-            h2 { font-size: 20px; font-weight: 700; margin: 24px 0 16px; }
-            h3 { font-size: 15px; font-weight: 700; margin: 12px 0 8px; }
-            p { font-size: 12px; margin: 0 0 6px; }
-            table { border-collapse: collapse; width: 100%; }
-            .space-y-8 > * + * { margin-top: 28px; }
-            .space-y-6 > * + * { margin-top: 22px; }
-            .space-y-4 > * + * { margin-top: 14px; }
-            .space-y-3 > * + * { margin-top: 10px; }
-            .grid { display: block; }
-            .grid > * { margin-bottom: 14px; }
-            .flex { display: block; }
-            .border-b-4, .border-b-3 { border-bottom: 3px solid #16a34a; }
-            .border-b { border-bottom: 1px solid #e5e7eb; }
-            .border-t, .border-t-2 { border-top: 1px solid #d1d5db; }
-            .border-2, .border, .rounded, .rounded-lg {
-              border: 1px solid #e5e7eb;
-              border-radius: 4px;
-            }
-            .border-l-4 { border-left: 4px solid #16a34a; }
-            .pb-3 { padding-bottom: 10px; }
-            .pb-6 { padding-bottom: 18px; }
-            .pt-2 { padding-top: 8px; }
-            .pt-4 { padding-top: 12px; }
-            .pt-6 { padding-top: 18px; }
-            .pt-8 { padding-top: 24px; }
-            .p-3 { padding: 10px; }
-            .p-4 { padding: 12px; }
-            .p-5 { padding: 16px; }
-            .p-6, .p-8 { padding: 18px; }
-            .mb-2 { margin-bottom: 8px; }
-            .mb-3 { margin-bottom: 10px; }
-            .mb-4 { margin-bottom: 12px; }
-            .mb-6 { margin-bottom: 18px; }
-            .mt-1 { margin-top: 4px; }
-            .mt-2 { margin-top: 8px; }
-            .mt-4 { margin-top: 12px; }
-            .mt-6 { margin-top: 18px; }
-            .text-xs { font-size: 10px; }
-            .text-sm { font-size: 12px; }
-            .text-lg { font-size: 14px; }
-            .text-2xl { font-size: 18px; }
-            .text-4xl, .text-5xl { font-size: 30px; }
-            .font-bold { font-weight: 700; }
-            .font-semibold { font-weight: 600; }
-            .uppercase { text-transform: uppercase; }
-            .italic { font-style: italic; }
-            .text-center { text-align: center; }
-            .text-gray-400, .text-gray-500, .text-gray-600 { color: #4b5563; }
-            .text-gray-700, .text-gray-900, .text-slate-900 { color: #1f2937; }
-            .text-green-700, .text-emerald-700, .text-emerald-900, .text-green-900 { color: #15803d; }
-            .text-red-600, .text-red-800 { color: #dc2626; }
-            .text-amber-600, .text-amber-800, .text-amber-900 { color: #d97706; }
-            .text-blue-600, .text-blue-800, .text-blue-900 { color: #2563eb; }
-            .bg-gray-50, .bg-slate-50 { background: #f9fafb; }
-            .bg-green-50, .bg-emerald-50 { background: #f0fdf4; }
-            .bg-red-50 { background: #fef2f2; }
-            .bg-amber-50 { background: #fffbeb; }
-            .bg-blue-50 { background: #eff6ff; }
-            svg, .recharts-responsive-container { display: none; }
-          </style>
-        </head>
-        <body>${reportContent}</body>
-        </html>
-      `;
-
-      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `ghg-emissions-inventory-report-${reportData.inventory_year || new Date().getFullYear()}.doc`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error downloading Word document');
-    } finally {
-      setDownloadingWord(false);
-    }
-  };
 
   const formatCompactNumber = (value: number | undefined): string => {
     if (!value && value !== 0) return 'N/A';
@@ -786,27 +489,12 @@ export function EmissionReport({ year = 'overall', years = [], onYearChange }: E
         </div>
         <div className="flex items-center gap-2">
           {onYearChange && <YearSelect value={selectedYear || 'overall'} years={years} onChange={onYearChange} />}
-          <Button
-            onClick={downloadWord}
-            disabled={downloadingWord}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            {downloadingWord ? 'Generating...' : 'Download Word'}
-          </Button>
-          <Button
-            onClick={downloadPDF}
-            disabled={downloading}
-            className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            {downloading ? 'Generating...' : 'Download PDF'}
-          </Button>
         </div>
       </div>
 
-      {/* Printable Report */}
+      <InventoryReportPanel year={selectedYear} />
+
+      {/* On-screen summary */}
       <div ref={reportRef} className="bg-white dark:bg-slate-950 p-8 rounded-lg border border-gray-200 dark:border-slate-800 space-y-8">
         {/* Header */}
         <div className="border-b-4 border-green-600 pb-6">

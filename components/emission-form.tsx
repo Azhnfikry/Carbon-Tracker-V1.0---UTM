@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Calculator, LogIn, Upload, FileUp, CheckCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { calculateCO2Equivalent, calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
+import { calculateCO2Equivalent, calculateCombinedFactorEmissions, calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
 import { mergeEmissionFactorsWithLocalDefinitions } from "@/lib/emission-factor-sync";
 import { DocumentUpload } from "@/components/document-upload";
 import { buildFacilityOptions, type FacilityOption } from "@/lib/facilities";
@@ -296,12 +296,7 @@ export function EmissionForm({ onEntryAdded, user, onBulkUploadClick }: Emission
 						typeof n2oFactor === "number" ? n2oFactor : 0
 					);
 				} else {
-					gasResults = calculateGasEmissionsByFactors(
-						item.value,
-						emissionFactorValue * 0.95,
-						emissionFactorValue * 0.03,
-						emissionFactorValue * 0.02
-					);
+					gasResults = calculateCombinedFactorEmissions(item.value, emissionFactorValue);
 				}
 				return {
 					user_id: user.id,
