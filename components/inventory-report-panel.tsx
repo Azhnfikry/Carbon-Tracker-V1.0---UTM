@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, Download, Eye, FileCheck2, Save, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, Eye, FileCheck2, FileSpreadsheet, Save, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -174,12 +174,11 @@ export function InventoryReportPanel({ year }: { year: string | null }) {
       setNotice('AI drafts created. Review each one, edit if needed, and approve it.');
     });
 
-  const downloadPdf = (mode: 'draft' | 'final') =>
-    run(mode, async () => {
-      const response = await fetch(`/api/report/pdf?year=${year}&mode=${mode}`);
+  const download = (label: string, endpoint: string, fallbackName: string) =>
+    run(label, async () => {
+      const response = await fetch(endpoint);
       if (!response.ok) throw new Error(await readError(response));
-      const fileName =
-        response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || `GHG_Inventory_${year}.pdf`;
+      const fileName = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || fallbackName;
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
       link.href = url;
@@ -189,6 +188,9 @@ export function InventoryReportPanel({ year }: { year: string | null }) {
       link.remove();
       URL.revokeObjectURL(url);
     });
+
+  const downloadPdf = (mode: 'draft' | 'final') =>
+    download(mode, `/api/report/pdf?year=${year}&mode=${mode}`, `GHG_Inventory_${year}.pdf`);
 
   // Editing an AI field withdraws its approval until it is reviewed again.
   const editNarrative = (key: NarrativeKey, value: string | RecommendationRow[]) =>
@@ -293,6 +295,15 @@ export function InventoryReportPanel({ year }: { year: string | null }) {
               >
                 <FileCheck2 className="mr-2 h-4 w-4" />
                 {busy === 'final' ? 'Generating…' : 'Export final PDF'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => download('workbook', '/api/report/workbook', 'GHG_Calculation_Workbook.xlsx')}
+                disabled={busy !== null}
+                title="Excel workbook with every year's calculation as linked formulas, for rechecking"
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {busy === 'workbook' ? 'Generating…' : 'Calculation workbook (.xlsx)'}
               </Button>
             </div>
 

@@ -129,18 +129,35 @@ export async function loadReportData(supabase: SupabaseClient, user: User, year:
       ...savedNarrative,
       fields: { ...blankNarrative.fields, ...(savedNarrative.fields || {}) },
     },
-    activities: emissions.map((row) => ({
-      scope: Number(row.scope),
-      category: String(row.category || ""),
-      activity_type: String(row.activity_type || ""),
-      quantity: Number(row.quantity) || 0,
-      unit: String(row.unit || ""),
-      date: String(row.date || ""),
-    })),
+    activities: emissions.map(toActivity),
     factors: mergeEmissionFactorsWithLocalDefinitions(factors.data || []) as unknown as FactorRecord[],
     masterlist,
     warnings,
     saved: Boolean(saved.data),
+  };
+}
+
+const toActivity = (row: Record<string, unknown>): ActivityRecord => ({
+  scope: Number(row.scope),
+  category: String(row.category || ""),
+  activity_type: String(row.activity_type || ""),
+  quantity: Number(row.quantity) || 0,
+  unit: String(row.unit || ""),
+  date: String(row.date || ""),
+});
+
+// Every year of activity data plus the factors, for the calculation workbook.
+export async function loadWorkbookData(supabase: SupabaseClient, user: User) {
+  const [factors, company] = await Promise.all([
+    supabase.from("emission_factors").select("*"),
+    supabase.from("company_info").select("company_name").eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (factors.error) throw new Error(`Failed to load emission factors: ${factors.error.message}`);
+  const emissions = await loadEmissions(supabase, user.id, "1900-01-01", "2999-12-31");
+  return {
+    organisationName: String(company.data?.company_name || ""),
+    activities: emissions.map(toActivity),
+    factors: mergeEmissionFactorsWithLocalDefinitions(factors.data || []) as unknown as FactorRecord[],
   };
 }
 

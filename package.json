@@ -23,6 +23,7 @@
     "@vercel/analytics": "1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "geist": "^1.5.1",
     "handlebars": "^4.7.10",
     "lucide-react": "^0.544.0",
