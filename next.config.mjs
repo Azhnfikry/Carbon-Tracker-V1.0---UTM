@@ -7,7 +7,11 @@ const nextConfig = {
     return config;
   },
   turbopack: {},
-  serverExternalPackages: ['@supabase/supabase-js'],
+  serverExternalPackages: ['@supabase/supabase-js', 'handlebars', 'puppeteer-core', '@sparticuz/chromium'],
+  // The report template and its images are read from disk at runtime.
+  outputFileTracingIncludes: {
+    '/api/report/**': ['./templates/**/*'],
+  },
 };
 
 export default nextConfig;

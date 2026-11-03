@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileText, Loader2, CheckCircle, XCircle, Users, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { calculateGasEmissionsByFactors } from "@/lib/emission-calculations";
+import { calculateCombinedFactorEmissions, calculateGasEmissionsByFactors, convertToFactorUnit } from "@/lib/emission-calculations";
 import { mergeEmissionFactorsWithLocalDefinitions } from "@/lib/emission-factor-sync";
 import { buildFacilityOptions, type FacilityOption } from "@/lib/facilities";
 import type { User } from "@supabase/supabase-js";
@@ -455,7 +455,8 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 			const scopeNumber = parseScopeNumber(item.Scope);
 			const matchedFactor = findMatchingFactor(item["Activity Type"], scopeNumber, factorList);
 
-			const quantity = parseFloat(item.Quantity);
+			// Waste is reported in tonnes or kg depending on the column; store it in the factor's unit.
+			const quantity = convertToFactorUnit(parseFloat(item.Quantity), item.Unit, matchedFactor?.unit);
 			const factor = matchedFactor?.factor || 1;
 
 			// Calculate individual gas emissions using available factors or fallback ratios
@@ -470,7 +471,7 @@ export function BulkUpload({ user, onUploadSuccess }: BulkUploadProps) {
 							typeof ch4Factor === "number" ? ch4Factor : 0,
 							typeof n2oFactor === "number" ? n2oFactor : 0
 						)
-					: calculateGasEmissionsByFactors(quantity, factor * 0.95, factor * 0.03, factor * 0.02);
+					: calculateCombinedFactorEmissions(quantity, factor);
 
 			return {
 				user_id: user.id,

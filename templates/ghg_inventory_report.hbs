@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{organisation_name}} – GHG Emissions Inventory Report {{reporting_year}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  TEMPLATE: GHG Emissions Inventory Report (GHG Protocol Corporate Standard)
+  Brand: UTM presentation template (maroon / red / charcoal / grey, diagonal motif)
+
+  Placeholder syntax (Handlebars-style):
+    {{field}}                 single value
+    {{#each list}}...{{/each}} repeated table rows
+    {{#if flag}}...{{/if}}     optional block
+
+  Guide tags (.guide) show who fills each block:
+    AUTO   = calculated by the platform engine
+    AI     = drafted by AI from calculated figures only, reviewed by consultant
+    MANUAL = entered by consultant / client
+    FIXED  = standard text, do not regenerate
+  Hide all guide tags for the final report by adding class="final" to <body>.
+-->
+<style>
+  :root{
+    --maroon:#7A1A2A;
+    --red:#C1393E;
+    --charcoal:#3E3E3E;
+    --grey:#C9C9C9;
+    --mist:#F3F3F3;
+    --ink:#222222;
+    --muted:#6B6B6B;
+    --paper:#FFFFFF;
+    --desk:#D9D9D9;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --desk:#2A2A2A; color-scheme: dark; }
+  }
+  :root[data-theme="dark"]{ --desk:#2A2A2A; color-scheme: dark; }
+
+  *{ box-sizing:border-box; }
+  html{ background:var(--desk); }
+  body{ margin:0; padding:24px 0; background:var(--desk); font-family:"Poppins", Arial, Helvetica, sans-serif; color:var(--ink); font-size:10pt; line-height:1.55; }
+
+  /* A4 page */
+  .page{ position:relative; width:210mm; min-height:297mm; margin:0 auto 24px; background:var(--paper); color:var(--ink); padding:22mm 18mm 24mm 30mm; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.25); }
+  .page:not(.cover):not(.back){ page-break-after:always; break-after:page; }
+
+  /* Signature device: vertical red tab carrying the section name (from UTM slide 8) */
+  .tab{ position:absolute; left:0; top:38mm; width:11mm; height:62mm; background:var(--red); color:#fff; }
+  .tab span{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-90deg); white-space:nowrap; font-weight:600; font-size:8.5pt; letter-spacing:.06em; }
+
+  .runhead{ position:absolute; top:9mm; left:30mm; right:18mm; display:flex; justify-content:space-between; align-items:center; font-size:7.5pt; color:var(--muted); border-bottom:.6pt solid var(--grey); padding-bottom:2mm; }
+  .runhead img{ height:7mm; }
+  .runfoot{ position:absolute; bottom:9mm; left:30mm; right:18mm; display:flex; justify-content:space-between; align-items:center; font-size:7.5pt; color:var(--muted); }
+  .runfoot img{ height:3.2mm; }
+
+  h1{ font-size:20pt; line-height:1.15; color:var(--maroon); margin:4mm 0 5mm; font-weight:700; }
+  h1 .num{ color:var(--red); margin-right:3mm; }
+  h2{ font-size:12pt; color:var(--charcoal); margin:7mm 0 2.5mm; font-weight:600; border-left:3pt solid var(--red); padding-left:3mm; }
+  h3{ font-size:10pt; color:var(--maroon); margin:5mm 0 1.5mm; font-weight:600; }
+  p{ margin:0 0 3mm; max-width:150mm; }
+  .small{ font-size:8pt; color:var(--muted); }
+  .note{ font-size:8pt; color:var(--muted); margin-top:-1mm; }
+
+  /* Tables */
+  table{ width:100%; border-collapse:collapse; margin:2mm 0 4mm; font-size:8.5pt; }
+  th{ background:var(--charcoal); color:#fff; font-weight:500; text-align:left; padding:2mm 2.5mm; vertical-align:bottom; }
+  td{ padding:1.8mm 2.5mm; border-bottom:.5pt solid #DCDCDC; vertical-align:top; }
+  td.n, th.n{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr.total td{ background:var(--mist); font-weight:600; border-top:1pt solid var(--charcoal); }
+  tr.memo td{ font-style:italic; color:var(--muted); border-bottom:none; }
+  tr.sub td{ background:#FAFAFA; font-weight:600; color:var(--maroon); }
+
+  thead{ display:table-header-group; }
+  h1, h2, h3{ break-after:avoid; page-break-after:avoid; }
+  table.wide{ font-size:6.3pt; table-layout:fixed; }
+  table.wide th, table.wide td{ padding:1.2mm .8mm; }
+  table.wide th:first-child{ width:17%; }
+  table.wide th:nth-child(2){ width:5%; }
+  tr{ break-inside:avoid; page-break-inside:avoid; }
+  .chart-svg{ margin:2mm 0 4mm; }
+  .chart-svg svg{ display:block; width:100%; height:auto; }
+  .chart-svg .empty{ color:var(--muted); font-size:8.5pt; }
+
+  /* Headline figures (executive summary) */
+  .headline{ display:flex; border-top:3pt solid var(--maroon); margin:3mm 0 5mm; }
+  .headline .main{ flex:1.4; padding:4mm 5mm 4mm 0; }
+  .headline .main .v{ font-size:30pt; font-weight:700; color:var(--maroon); line-height:1; }
+  .headline .main .u{ font-size:9pt; color:var(--muted); margin-top:1.5mm; }
+  .headline .s{ flex:1; padding:4mm 4mm; border-left:.6pt solid var(--grey); }
+  .headline .s .v{ font-size:14pt; font-weight:600; color:var(--charcoal); line-height:1.1; }
+  .headline .s .l{ font-size:7.5pt; color:var(--muted); }
+
+  .box{ background:var(--mist); border-left:3pt solid var(--maroon); padding:3mm 4mm; margin:3mm 0 4mm; font-size:9pt; }
+  .formula{ font-weight:600; color:var(--maroon); background:var(--mist); padding:3mm 4mm; margin:2mm 0 4mm; font-size:9.5pt; }
+  .chart{ border:.8pt dashed var(--grey); height:62mm; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:8.5pt; margin:2mm 0 4mm; text-align:center; padding:4mm; }
+  .photoband{ margin:-22mm -18mm 6mm -30mm; height:58mm; background-size:cover; background-position:center 40%; position:relative; }
+  .photoband::after{ content:""; position:absolute; inset:0; background:linear-gradient(90deg, rgba(122,26,42,.92) 0%, rgba(122,26,42,.75) 38%, rgba(122,26,42,0) 70%); }
+  .photoband div{ position:absolute; z-index:1; left:30mm; bottom:9mm; width:120mm; color:#fff; }
+  .photoband .k, .photoband .t{ position:static; width:auto; }
+  .page.has-band .tab{ top:72mm; }
+  .photoband .k{ font-size:9pt; opacity:.9; }
+  .photoband .t{ font-size:22pt; font-weight:700; line-height:1.1; }
+
+  /* Guide tags */
+  .guide{ display:inline-block; font-size:6.5pt; font-weight:600; letter-spacing:.04em; padding:.4mm 1.6mm; border-radius:1mm; vertical-align:middle; margin-left:2mm; position:relative; top:-.5mm; }
+  .g-auto{ background:#E3EEF7; color:#1F4E79; }
+  .g-ai{ background:#F3E6F5; color:#6B2C78; }
+  .g-man{ background:#FFF1D6; color:#8A5A00; }
+  .g-fix{ background:#E8E8E8; color:#444; }
+  .instr{ font-size:7.5pt; color:#8A5A00; background:#FFF8E8; border:.5pt dashed #E2C27A; padding:1.5mm 2.5mm; margin:1mm 0 3mm; }
+  body.final .guide, body.final .instr{ display:none; }
+
+  /* Cover */
+  .cover{ padding:0; background:var(--paper); }
+  .cover .photo{ position:absolute; right:0; top:0; width:62%; height:100%; background-size:cover; background-position:center; }
+  .cover .diag{ position:absolute; left:0; top:0; width:100%; height:100%; }
+  .cover .panel{ position:absolute; left:0; top:0; width:58%; height:100%; background:var(--red); clip-path:polygon(0 0,100% 0,62% 100%,0 100%); }
+  .cover .panel2{ position:absolute; left:0; top:0; width:100%; height:100%; background:var(--grey); clip-path:polygon(57% 0,67% 0,45% 100%,35% 100%); opacity:.9; }
+  .cover .content{ position:absolute; left:16mm; top:22mm; width:95mm; color:#fff; }
+  .cover .content img.logo{ height:15mm; margin-bottom:36mm; }
+  .cover .eyebrow{ font-size:9pt; font-weight:500; opacity:.95; margin-bottom:3mm; }
+  .cover .title{ font-size:30pt; font-weight:700; line-height:1.08; margin:0 0 6mm; }
+  .cover .org{ font-size:12pt; font-weight:600; line-height:1.3; }
+  .cover .meta{ position:absolute; left:16mm; bottom:26mm; width:70mm; color:#fff; font-size:8.5pt; line-height:1.7; }
+  .cover .meta b{ font-weight:600; }
+  .cover .tag{ position:absolute; left:16mm; bottom:12mm; height:4mm; filter:brightness(0) invert(1); opacity:.9; }
+
+  .back{ padding:0; }
+  .back .img{ position:absolute; inset:0 0 40% 0; background-size:cover; background-position:center; }
+  .back .base{ position:absolute; left:0; right:0; bottom:0; height:40%; background:var(--charcoal); color:#fff; padding:18mm 18mm 0 30mm; }
+  .back .base img{ height:13mm; margin-bottom:8mm; }
+
+  @media print{
+    html,body{ background:#fff; padding:0; }
+    .page{ margin:0; box-shadow:none; }
+    @page{ size:A4; margin:0; }
+    /* One template page per printed page: the cover also breaks, and fixed-height pages cannot spill. */
+    .page{ break-after:page; page-break-after:always; }
+    .page.back{ break-after:auto; page-break-after:auto; }
+    .cover, .back{ height:297mm; min-height:0; }
+  }
+  @media screen and (max-width:820px){
+    .page{ width:100%; min-height:auto; padding:18mm 6mm 22mm 16mm; }
+    .tab{ width:7mm; }
+    .runhead,.runfoot{ left:16mm; right:6mm; }
+    .photoband{ margin:-18mm -6mm 6mm -16mm; }
+    .photoband div{ left:16mm; }
+    .cover{ min-height:240mm; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<section class="page cover" aria-label="Cover">
+  <div class="photo" style="background-image:url('assets/cover_kl_tower.jpg');"></div>
+  <div class="panel2"></div>
+  <div class="panel"></div>
+  <div class="content">
+    <img class="logo" src="assets/logo_white.png" alt="Universiti Teknologi Malaysia">
+    <div class="eyebrow">Greenhouse gas emissions inventory report</div>
+    <div class="title">Carbon Footprint {{reporting_year}}</div>
+    <div class="org">{{organisation_name}}<br>{{campus_name}}</div>
+  </div>
+  <div class="meta">
+    <b>Reporting period</b> {{reporting_period_start}} – {{reporting_period_end}}<br>
+    <b>Standard</b> GHG Protocol Corporate Standard<br>
+    <b>Version</b> {{report_version}} &nbsp;|&nbsp; {{report_date}}
+  </div>
+  <img class="tag" src="assets/tagline_maroon.png" alt="Innovating Solutions">
+</section>
+
+<!-- ===================== DOCUMENT CONTROL & CONTENTS ===================== -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Document control</span></div>
+
+  <h1>Document control <span class="guide g-man">MANUAL</span></h1>
+  <table>
+    <thead><tr><th style="width:38%">Item</th><th>Detail</th></tr></thead><tbody>
+    <tr><td>Reporting organisation</td><td>{{organisation_name}}</td></tr>
+    <tr><td>Site(s) covered</td><td>{{campus_name}}, {{campus_address}}</td></tr>
+    <tr><td>Reporting period</td><td>{{reporting_period_start}} – {{reporting_period_end}} (12 months)</td></tr>
+    <tr><td>Base year</td><td>{{base_year}}</td></tr>
+    <tr><td>Report version / date</td><td>{{report_version}} / {{report_date}}</td></tr>
+    <tr><td>Prepared by</td><td>{{prepared_by}}</td></tr>
+    <tr><td>Reviewed by</td><td>{{reviewed_by}}</td></tr>
+    <tr><td>Approved by</td><td>{{approved_by}}</td></tr>
+    <tr><td>Assurance status</td><td>{{assurance_status}}</td></tr>
+  </tbody></table>
+  <div class="instr">Assurance status options: "Internal review only – not externally verified" / "Limited assurance by {{verifier}}" / "Reasonable assurance by {{verifier}}".</div>
+
+  <h2>Contents</h2>
+  <table>
+    <tr><td>Executive summary</td></tr>
+    <tr><td>1&nbsp;&nbsp;Organisational profile</td></tr>
+    <tr><td>2&nbsp;&nbsp;Reporting framework</td></tr>
+    <tr><td>3&nbsp;&nbsp;Reporting boundaries</td></tr>
+    <tr><td>4&nbsp;&nbsp;Methodology</td></tr>
+    <tr><td>5&nbsp;&nbsp;GHG emissions results</td></tr>
+    <tr><td>6&nbsp;&nbsp;Emission hotspots</td></tr>
+    <tr><td>7&nbsp;&nbsp;Data quality and limitations</td></tr>
+    <tr><td>8&nbsp;&nbsp;Recommendations</td></tr>
+    <tr><td>9&nbsp;&nbsp;Statement and sign-off</td></tr>
+    <tr><td>Appendix A–D</td></tr>
+  </table>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ EXECUTIVE SUMMARY ============================ -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Executive summary</span></div>
+
+  <h1>Executive summary</h1>
+
+  <div class="headline">
+    <div class="main"><div class="v">{{total_tco2e}}</div><div class="u">tCO<sub>2</sub>e total GHG emissions, {{reporting_year}} <span class="guide g-auto">AUTO</span></div></div>
+    <div class="s"><div class="v">{{scope1_tco2e}}</div><div class="l">Scope 1 – {{scope1_pct}}%</div></div>
+    <div class="s"><div class="v">{{scope2_tco2e}}</div><div class="l">Scope 2 – {{scope2_pct}}%</div></div>
+    <div class="s"><div class="v">{{scope3_tco2e}}</div><div class="l">Scope 3 – {{scope3_pct}}%</div></div>
+  </div>
+  <p class="note">Excludes {{outside_scopes_tco2e}} tCO<sub>2</sub>e from HCFC refrigerants (R22) reported separately outside the scopes (Section 5.5).</p>
+
+  <h2>Key findings <span class="guide g-ai">AI</span></h2>
+  <p>{{exec_summary_paragraph}}</p>
+  <div class="instr">AI: 3–4 sentences. State the total, the largest source and its share, the second and third sources, and the most important data gap. Use only figures from Section 5. No forecasts.</div>
+
+  <h3>Top emission sources</h3>
+  <table>
+    <thead><tr><th>Source</th><th>Scope</th><th class="n">tCO<sub>2</sub>e</th><th class="n">Share</th></tr></thead><tbody>
+    {{#each top_sources}}
+    <tr><td>{{source_name}}</td><td>{{scope}}</td><td class="n">{{tco2e}}</td><td class="n">{{pct}}%</td></tr>
+    {{/each}}
+  </tbody></table>
+
+  <h3>Priority recommendations <span class="guide g-ai">AI</span></h3>
+  <p>{{exec_recommendations_paragraph}}</p>
+  <div class="instr">AI: name the top 3 actions from Section 8 in one short paragraph.</div>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ======================= 1 PROFILE · 2 FRAMEWORK ======================= -->
+<section class="page has-band">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="photoband" style="background-image:url('assets/kl_gateway.jpg');"><div><div class="k">{{campus_name}}</div><div class="t">About this report</div></div></div>
+  <div class="tab"><span>Profile &amp; framework</span></div>
+
+  <h1><span class="num">1</span>Organisational profile <span class="guide g-man">MANUAL</span></h1>
+  <p>{{organisation_profile}}</p>
+  <div class="instr">2–3 short paragraphs: the institution, the campus covered, its main activities (teaching, research, residential, laboratories) and anything that drives energy use.</div>
+  <table>
+    <thead><tr><th>Campus indicator</th><th class="n">Value</th></tr></thead><tbody>
+    <tr><td>Gross floor area</td><td class="n">{{gross_floor_area_m2}} m²</td></tr>
+    <tr><td>Staff</td><td class="n">{{staff_count}}</td></tr>
+    <tr><td>Students</td><td class="n">{{student_count}}</td></tr>
+  </tbody></table>
+  <p class="note">Context only. These figures are not used in the emissions calculation.</p>
+
+  <h1><span class="num">2</span>Reporting framework <span class="guide g-fix">FIXED</span></h1>
+  <p>This inventory has been prepared in accordance with the GHG Protocol Corporate Accounting and Reporting Standard (WRI/WBCSD) and the GHG Protocol Scope 2 Guidance. Scope 3 categories are classified using the GHG Protocol Corporate Value Chain (Scope 3) Standard.</p>
+  <p>The inventory covers the seven greenhouse gases defined by the GHG Protocol: carbon dioxide (CO<sub>2</sub>), methane (CH<sub>4</sub>), nitrous oxide (N<sub>2</sub>O), hydrofluorocarbons (HFCs), perfluorocarbons (PFCs), sulphur hexafluoride (SF<sub>6</sub>) and nitrogen trifluoride (NF<sub>3</sub>). Emissions are expressed in tonnes of carbon dioxide equivalent (tCO<sub>2</sub>e) using 100-year global warming potentials from the {{gwp_set}}.</p>
+  <p>The inventory follows the five GHG Protocol accounting principles of relevance, completeness, consistency, transparency and accuracy.</p>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ 3 BOUNDARIES ============================ -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Boundaries</span></div>
+
+  <h1><span class="num">3</span>Reporting boundaries</h1>
+
+  <h2>3.1 Organisational boundary <span class="guide g-man">MANUAL</span></h2>
+  <p>Emissions are consolidated using the <b>{{consolidation_approach}}</b> approach. The inventory covers facilities over which {{organisation_name}} has {{consolidation_approach_lower}}: {{sites_included}}.</p>
+  <p>{{sites_excluded_statement}}</p>
+
+  <h2>3.2 Operational boundary <span class="guide g-auto">AUTO</span> <span class="guide g-man">MANUAL</span></h2>
+  <table>
+    <thead><tr><th>Scope / category</th><th>Emission sources</th><th style="width:16%">Status</th><th style="width:30%">Justification</th></tr></thead><tbody>
+    {{#each boundary_rows}}
+    <tr><td>{{scope_category}}</td><td>{{sources}}</td><td>{{status}}</td><td>{{justification}}</td></tr>
+    {{/each}}
+  </tbody></table>
+  <div class="instr">Status values: Included / Excluded / Not applicable. Every category marked "Included" in the data collection masterlist but with no data for the period must appear here as Excluded with the reason (e.g. "Data not available for reporting period; to be collected for next inventory").</div>
+
+  <h2>3.3 Reporting period and base year <span class="guide g-man">MANUAL</span></h2>
+  <p>Reporting period: {{reporting_period_start}} – {{reporting_period_end}}. Base year: {{base_year}}. {{base_year_rationale}}</p>
+  <p>The base year will be recalculated if structural changes, changes in methodology or discovered errors change base-year emissions by more than {{recalc_threshold_pct}}%.</p>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ 4 METHODOLOGY ============================ -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Methodology</span></div>
+
+  <h1><span class="num">4</span>Methodology</h1>
+
+  <h2>4.1 Calculation approach <span class="guide g-fix">FIXED</span></h2>
+  <p>Emissions are calculated from activity data and published emission factors:</p>
+  <div class="formula">Emissions (tCO<sub>2</sub>e) = Activity data × Emission factor ÷ 1,000</div>
+  <p>For fuel combustion, each gas is calculated separately and converted to CO<sub>2</sub>e:</p>
+  <div class="formula">CO<sub>2</sub>e = CO<sub>2</sub> + (CH<sub>4</sub> × GWP<sub>CH4</sub>) + (N<sub>2</sub>O × GWP<sub>N2O</sub>)</div>
+  <p>Refrigerant emissions are calculated from the mass of refrigerant topped up during maintenance, multiplied by the refrigerant's GWP. Scope 2 emissions are reported using the location-based method with the national grid emission factor{{#if market_based}}, and also using the market-based method{{/if}}.</p>
+
+  <h2>4.2 Emission factors <span class="guide g-auto">AUTO</span></h2>
+  <p>A summary of factors used is shown below. The full list with values and units is in Appendix B.</p>
+  <table>
+    <thead><tr><th>Source</th><th>Factor source</th><th>Year</th></tr></thead><tbody>
+    {{#each factor_summary}}
+    <tr><td>{{source}}</td><td>{{reference}}</td><td>{{year}}</td></tr>
+    {{/each}}
+  </tbody></table>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Methodology</span></div>
+
+  <h2>4.3 Data sources and quality <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Source</th><th>Data owner</th><th>Evidence</th><th>Data type</th><th>Months</th></tr></thead><tbody>
+    {{#each data_sources}}
+    <tr><td>{{source}}</td><td>{{owner}}</td><td>{{evidence}}</td><td>{{data_type}}</td><td class="n">{{months_covered}}/12</td></tr>
+    {{/each}}
+  </tbody></table>
+  <div class="instr">Data type values: Metered / Invoiced / Estimated. "Months" counts months with data in the reporting period.</div>
+
+  <h2>4.4 Key assumptions <span class="guide g-man">MANUAL</span></h2>
+  <p>{{assumptions}}</p>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ 5 RESULTS (1) ============================ -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Results</span></div>
+
+  <h1><span class="num">5</span>GHG emissions results</h1>
+
+  <h2>5.1 Emissions by scope <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Scope</th><th class="n">tCO<sub>2</sub>e</th><th class="n">Share</th></tr></thead><tbody>
+    <tr><td>Scope 1 – Direct emissions</td><td class="n">{{scope1_tco2e}}</td><td class="n">{{scope1_pct}}%</td></tr>
+    <tr><td>Scope 2 – Purchased electricity (location-based)</td><td class="n">{{scope2_tco2e}}</td><td class="n">{{scope2_pct}}%</td></tr>
+    <tr><td>Scope 3 – Other indirect emissions</td><td class="n">{{scope3_tco2e}}</td><td class="n">{{scope3_pct}}%</td></tr>
+    <tr class="total"><td>Total GHG emissions</td><td class="n">{{total_tco2e}}</td><td class="n">100%</td></tr>
+    <tr class="memo"><td>Memo: HCFC refrigerants, outside scopes (Section 5.5)</td><td class="n">{{outside_scopes_tco2e}}</td><td class="n">–</td></tr>
+  </tbody></table>
+  {{#if market_based}}<p class="note">Scope 2 market-based: {{scope2_market_tco2e}} tCO<sub>2</sub>e.</p>{{/if}}
+
+  <div class="chart-svg">{{{chart_scope_svg}}}</div>
+
+  <h2>5.2 Emissions by source <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Scope</th><th>Category</th><th>Source</th><th class="n">Activity</th><th>Unit</th><th class="n">tCO<sub>2</sub>e</th><th class="n">Share</th></tr></thead><tbody>
+    {{#each source_rows}}
+    <tr><td>{{scope}}</td><td>{{category}}</td><td>{{source}}</td><td class="n">{{activity}}</td><td>{{activity_unit}}</td><td class="n">{{tco2e}}</td><td class="n">{{pct}}%</td></tr>
+    {{/each}}
+    <tr class="total"><td colspan="5">Total</td><td class="n">{{total_tco2e}}</td><td class="n">100%</td></tr>
+  </tbody></table>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ 5 RESULTS (2) ============================ -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Results</span></div>
+
+  <h2>5.3 Emissions by gas <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Source group</th><th class="n">CO<sub>2</sub></th><th class="n">CH<sub>4</sub></th><th class="n">N<sub>2</sub>O</th><th class="n">HFCs</th><th class="n">CO<sub>2</sub>e not split by gas</th><th class="n">Total</th></tr></thead><tbody>
+    {{#each gas_rows}}
+    <tr><td>{{group}}</td><td class="n">{{co2}}</td><td class="n">{{ch4}}</td><td class="n">{{n2o}}</td><td class="n">{{hfc}}</td><td class="n">{{co2e_unsplit}}</td><td class="n">{{total}}</td></tr>
+    {{/each}}
+    <tr class="total"><td>Total</td><td class="n">{{gas_co2}}</td><td class="n">{{gas_ch4}}</td><td class="n">{{gas_n2o}}</td><td class="n">{{gas_hfc}}</td><td class="n">{{gas_unsplit}}</td><td class="n">{{total_tco2e}}</td></tr>
+  </tbody></table>
+  <p class="note">All values in tCO<sub>2</sub>e. Gas-level results are shown only where the emission factor is given per gas (fuel combustion). Electricity, water and waste factors are published as combined CO<sub>2</sub>e values and are shown in the "not split by gas" column. Refrigerants are reported as HFCs.</p>
+
+  <h2>5.4 Monthly emissions <span class="guide g-auto">AUTO</span></h2>
+  <div class="chart-svg">{{{chart_monthly_svg}}}</div>
+
+  <h2>5.5 Emissions outside the scopes <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Substance</th><th class="n">Quantity (kg)</th><th class="n">GWP</th><th class="n">tCO<sub>2</sub>e</th></tr></thead><tbody>
+    {{#each outside_scope_rows}}
+    <tr><td>{{substance}}</td><td class="n">{{kg}}</td><td class="n">{{gwp}}</td><td class="n">{{tco2e}}</td></tr>
+    {{/each}}
+  </tbody></table>
+  <div class="box">Emissions from HCFCs controlled under the Montreal Protocol (such as R22 and R123) are reported separately and are not included in the scope totals, in line with the GHG Protocol Corporate Standard. <span class="guide g-fix">FIXED</span></div>
+
+  {{#if has_prior_year}}
+  <h2>5.6 Comparison with base year <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Scope</th><th class="n">Base year {{base_year}}</th><th class="n">{{reporting_year}}</th><th class="n">Change</th></tr></thead><tbody>
+    {{#each comparison_rows}}
+    <tr><td>{{scope}}</td><td class="n">{{base}}</td><td class="n">{{current}}</td><td class="n">{{change_pct}}%</td></tr>
+    {{/each}}
+  </tbody></table>
+  {{/if}}
+  <div class="instr">Section 5.6 appears only when a full base-year inventory exists with the same boundary and methodology.</div>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ===================== 6 HOTSPOTS · 7 DATA QUALITY ===================== -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Analysis</span></div>
+
+  <h1><span class="num">6</span>Emission hotspots <span class="guide g-ai">AI</span></h1>
+  <p>{{hotspot_analysis}}</p>
+  <div class="instr">AI: 2–4 short paragraphs, one per major source. Explain what drives each source and notable monthly patterns or outliers from Section 5.4. Use only calculated figures. Do not estimate costs or forecasts.</div>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Data quality</span></div>
+
+  <h1><span class="num">7</span>Data quality and limitations</h1>
+  <h2>7.1 Data gaps <span class="guide g-auto">AUTO</span></h2>
+  <table>
+    <thead><tr><th>Source</th><th>Issue</th><th>Effect on inventory</th></tr></thead><tbody>
+    {{#each data_gaps}}
+    <tr><td>{{source}}</td><td>{{issue}}</td><td>{{effect}}</td></tr>
+    {{/each}}
+  </tbody></table>
+  <div class="instr">Auto-list: sources with fewer than 12 months of data, sources marked Estimated, months flagged as outliers (more than ±30% from the period median), and categories excluded in Section 3.2.</div>
+
+  <h2>7.2 Improvement plan <span class="guide g-ai">AI</span> <span class="guide g-man">MANUAL</span></h2>
+  <p>{{improvement_plan}}</p>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ===================== 8 RECOMMENDATIONS · 9 SIGN-OFF ===================== -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Recommendations</span></div>
+
+  <h1><span class="num">8</span>Recommendations <span class="guide g-ai">AI</span></h1>
+  <table>
+    <thead><tr><th>Action</th><th>Source addressed</th><th class="n">Source emissions (tCO<sub>2</sub>e)</th><th>Effort</th><th>Timeframe</th></tr></thead><tbody>
+    {{#each recommendations}}
+    <tr><td>{{action}}</td><td>{{source}}</td><td class="n">{{source_tco2e}}</td><td>{{effort}}</td><td>{{timeframe}}</td></tr>
+    {{/each}}
+  </tbody></table>
+  <div class="instr">AI: 4–6 actions ranked by the size of the source they address. Show the emissions of the source, not an estimated saving, unless the saving is calculated by the engine with stated assumptions. Effort: Low / Medium / High. Timeframe: Short (&lt;1 yr) / Medium (1–3 yrs) / Long (&gt;3 yrs).</div>
+
+  <h1><span class="num">9</span>Statement and sign-off <span class="guide g-man">MANUAL</span></h1>
+  <p>This report presents the greenhouse gas emissions of {{organisation_name}} ({{campus_name}}) for {{reporting_period_start}} – {{reporting_period_end}}, prepared in accordance with the GHG Protocol Corporate Standard. {{assurance_statement}}</p>
+  <table>
+    <thead><tr><th style="width:22%">Role</th><th>Name and position</th><th style="width:24%">Signature</th><th style="width:16%">Date</th></tr></thead><tbody>
+    <tr><td>Prepared by</td><td>{{prepared_by}}</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>Reviewed by</td><td>{{reviewed_by}}</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>Approved by</td><td>{{approved_by}}</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+  </tbody></table>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ APPENDICES ============================ -->
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Appendices</span></div>
+
+  <h1>Appendix A – Activity data <span class="guide g-auto">AUTO</span></h1>
+  <table class="wide">
+    <thead><tr><th>Source</th><th>Unit</th><th class="n">Jan</th><th class="n">Feb</th><th class="n">Mar</th><th class="n">Apr</th><th class="n">May</th><th class="n">Jun</th><th class="n">Jul</th><th class="n">Aug</th><th class="n">Sep</th><th class="n">Oct</th><th class="n">Nov</th><th class="n">Dec</th><th class="n">Total</th></tr></thead><tbody>
+    {{#each activity_rows}}
+    <tr><td>{{source}}</td><td>{{unit}}</td>{{#each months}}<td class="n">{{this}}</td>{{/each}}<td class="n">{{total}}</td></tr>
+    {{/each}}
+  </tbody></table>
+  <div class="instr">Use landscape orientation or a smaller font for this table if the export tool supports it. Blank cells = no data submitted.</div>
+
+  <h1>Appendix B – Emission factors <span class="guide g-auto">AUTO</span></h1>
+  <table>
+    <thead><tr><th>Source</th><th class="n">CO<sub>2</sub>e factor</th><th>Unit</th><th class="n">CO<sub>2</sub></th><th class="n">CH<sub>4</sub></th><th class="n">N<sub>2</sub>O</th><th>Reference</th><th>Year</th></tr></thead><tbody>
+    {{#each factor_rows}}
+    <tr><td>{{source}}</td><td class="n">{{co2e}}</td><td>{{unit}}</td><td class="n">{{co2}}</td><td class="n">{{ch4}}</td><td class="n">{{n2o}}</td><td>{{reference}}</td><td>{{year}}</td></tr>
+    {{/each}}
+  </tbody></table>
+  <p class="note">GWP values: {{gwp_set}} (CH<sub>4</sub> {{gwp_ch4}}, N<sub>2</sub>O {{gwp_n2o}}).</p>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<section class="page">
+  <div class="runhead"><span>{{organisation_name}} | GHG Inventory {{reporting_year}}</span><img src="assets/logo_colour.png" alt="UTM"></div>
+  <div class="tab"><span>Appendices</span></div>
+
+  <h1>Appendix C – Calculation worksheet <span class="guide g-auto">AUTO</span></h1>
+  <table>
+    <thead><tr><th>Source</th><th class="n">Activity</th><th>Unit</th><th class="n">Factor</th><th>Factor unit</th><th class="n">kg CO<sub>2</sub>e</th><th class="n">tCO<sub>2</sub>e</th></tr></thead><tbody>
+    {{#each calc_rows}}
+    <tr><td>{{source}}</td><td class="n">{{activity}}</td><td>{{activity_unit}}</td><td class="n">{{factor}}</td><td>{{factor_unit}}</td><td class="n">{{kgco2e}}</td><td class="n">{{tco2e}}</td></tr>
+    {{/each}}
+    <tr class="total"><td colspan="6">Total (excluding outside-scope emissions)</td><td class="n">{{total_tco2e}}</td></tr>
+  </tbody></table>
+  <p class="note">Every figure in Sections 1–8 can be reproduced from this worksheet. Fuel rows show the combined CO<sub>2</sub>e result; the gas-level split is in Section 5.3.</p>
+
+  <h1>Appendix D – AI disclosure and glossary <span class="guide g-fix">FIXED</span></h1>
+  <p>All emissions figures in this report were calculated by the {{platform_name}} calculation engine from submitted activity data and the emission factors in Appendix B. Narrative sections marked in the drafting process (executive summary, hotspot analysis, improvement plan and recommendations) were drafted with AI assistance from these calculated figures and reviewed by the preparer named in Section 9.</p>
+  <table>
+    <thead><tr><th style="width:24%">Term</th><th>Definition</th></tr></thead><tbody>
+    <tr><td>tCO<sub>2</sub>e</td><td>Tonnes of carbon dioxide equivalent – the warming effect of a gas expressed as the amount of CO<sub>2</sub> with the same effect.</td></tr>
+    <tr><td>GWP</td><td>Global warming potential – the warming effect of one kilogram of a gas relative to one kilogram of CO<sub>2</sub> over 100 years.</td></tr>
+    <tr><td>Scope 1</td><td>Direct emissions from sources owned or controlled by the organisation (fuel combustion, refrigerant leakage).</td></tr>
+    <tr><td>Scope 2</td><td>Indirect emissions from purchased electricity.</td></tr>
+    <tr><td>Scope 3</td><td>Other indirect emissions in the value chain (e.g. waste, water, business travel, commuting).</td></tr>
+    <tr><td>HFC / HCFC</td><td>Hydrofluorocarbon (a GHG Protocol gas) / hydrochlorofluorocarbon (an ozone-depleting substance controlled under the Montreal Protocol, reported outside the scopes).</td></tr>
+    <tr><td>Location-based method</td><td>Scope 2 method using the average emission factor of the grid where electricity is consumed.</td></tr>
+  </tbody></table>
+
+  <div class="runfoot"><span></span><img src="assets/tagline_maroon.png" alt=""></div>
+</section>
+
+<!-- ============================ BACK COVER ============================ -->
+<section class="page back" aria-label="Back cover">
+  <div class="img" style="background-image:url('assets/kl_collage.jpg');"></div>
+  <div class="base">
+    <img src="assets/logo_white.png" alt="Universiti Teknologi Malaysia">
+    <p style="font-size:9pt;line-height:1.7;max-width:120mm;">{{organisation_name}}<br>{{campus_address}}<br>{{contact_email}}</p>
+    <p class="small" style="color:#cfcfcf;margin-top:8mm;">Prepared by {{prepared_by_org}} using the {{platform_name}} platform.</p>
+  </div>
+</section>
+
+</body>
+</html>

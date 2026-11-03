@@ -1,0 +1,1004 @@
+{
+ "note": "UTM KL activity data for 2024 as stored by the Google Sheet sync (waste reported in tonnes converted to kg), emission_factors table, and the Masterlist tab.",
+ "activities": [
+  {
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "Diesel (Litre or BTU)",
+   "quantity": 100,
+   "unit": "Litre",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "Diesel (Litre or BTU)",
+   "quantity": 100,
+   "unit": "Litre",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "Diesel (Litre or BTU)",
+   "quantity": 100,
+   "unit": "Litre",
+   "date": "2024-08-01"
+  },
+  {
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "Diesel (Litre or BTU)",
+   "quantity": 100,
+   "unit": "Litre",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 14,
+   "unit": "unit",
+   "date": "2024-01-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 14,
+   "unit": "unit",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 14,
+   "unit": "unit",
+   "date": "2024-03-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 14,
+   "unit": "unit",
+   "date": "2024-04-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 14,
+   "unit": "unit",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 14,
+   "unit": "unit",
+   "date": "2024-09-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 42,
+   "unit": "unit",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "quantity": 27,
+   "unit": "unit",
+   "date": "2024-12-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 120,
+   "unit": "unit",
+   "date": "2024-01-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 160,
+   "unit": "unit",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 70,
+   "unit": "unit",
+   "date": "2024-03-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 60,
+   "unit": "unit",
+   "date": "2024-04-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 330,
+   "unit": "unit",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 40,
+   "unit": "unit",
+   "date": "2024-06-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 80,
+   "unit": "unit",
+   "date": "2024-07-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 70,
+   "unit": "unit",
+   "date": "2024-09-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 170,
+   "unit": "unit",
+   "date": "2024-10-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 200,
+   "unit": "unit",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "quantity": 40,
+   "unit": "unit",
+   "date": "2024-12-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 937539.84,
+   "unit": "Kwh",
+   "date": "2024-01-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 863665.96,
+   "unit": "Kwh",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 877428,
+   "unit": "Kwh",
+   "date": "2024-03-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 781856,
+   "unit": "Kwh",
+   "date": "2024-04-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 1019325,
+   "unit": "Kwh",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 831816.89,
+   "unit": "Kwh",
+   "date": "2024-06-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 1082706.5,
+   "unit": "Kwh",
+   "date": "2024-07-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 614242.73,
+   "unit": "Kwh",
+   "date": "2024-08-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 865489.61,
+   "unit": "Kwh",
+   "date": "2024-09-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 1003208.7,
+   "unit": "Kwh",
+   "date": "2024-10-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 987023.24,
+   "unit": "Kwh",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "quantity": 933238.63,
+   "unit": "Kwh",
+   "date": "2024-12-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Kitar Semula",
+   "quantity": 358,
+   "unit": "Kg",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Kitar Semula",
+   "quantity": 164,
+   "unit": "Kg",
+   "date": "2024-08-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Kitar Semula",
+   "quantity": 145,
+   "unit": "Kg",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 40000,
+   "unit": "Kg",
+   "date": "2024-01-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 50000,
+   "unit": "Kg",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 45000,
+   "unit": "Kg",
+   "date": "2024-03-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 40000,
+   "unit": "Kg",
+   "date": "2024-04-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 45000,
+   "unit": "Kg",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 75000,
+   "unit": "Kg",
+   "date": "2024-06-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 35000,
+   "unit": "Kg",
+   "date": "2024-07-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 40000,
+   "unit": "Kg",
+   "date": "2024-08-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 40000,
+   "unit": "Kg",
+   "date": "2024-09-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 40000,
+   "unit": "Kg",
+   "date": "2024-10-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 45000,
+   "unit": "Kg",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "quantity": 40000,
+   "unit": "Kg",
+   "date": "2024-12-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 140000,
+   "unit": "Kg",
+   "date": "2024-01-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 180000,
+   "unit": "Kg",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 145000,
+   "unit": "Kg",
+   "date": "2024-03-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 150000,
+   "unit": "Kg",
+   "date": "2024-04-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 185000,
+   "unit": "Kg",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 185000,
+   "unit": "Kg",
+   "date": "2024-06-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 185000,
+   "unit": "Kg",
+   "date": "2024-07-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 185000,
+   "unit": "Kg",
+   "date": "2024-08-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 140000,
+   "unit": "Kg",
+   "date": "2024-09-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 145000,
+   "unit": "Kg",
+   "date": "2024-10-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 140000,
+   "unit": "Kg",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "quantity": 145000,
+   "unit": "Kg",
+   "date": "2024-12-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 23653,
+   "unit": "m3",
+   "date": "2024-01-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 22282,
+   "unit": "m3",
+   "date": "2024-02-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 22267,
+   "unit": "m3",
+   "date": "2024-03-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 22608,
+   "unit": "m3",
+   "date": "2024-04-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 22279,
+   "unit": "m3",
+   "date": "2024-05-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 21373,
+   "unit": "m3",
+   "date": "2024-06-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 21894,
+   "unit": "m3",
+   "date": "2024-07-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 24908.8,
+   "unit": "m3",
+   "date": "2024-08-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 25780,
+   "unit": "m3",
+   "date": "2024-09-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 22781,
+   "unit": "m3",
+   "date": "2024-10-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 20434,
+   "unit": "m3",
+   "date": "2024-11-01"
+  },
+  {
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "quantity": 20397,
+   "unit": "m3",
+   "date": "2024-12-01"
+  }
+ ],
+ "dbFactors": [
+  {
+   "id": "12",
+   "scope": 1,
+   "category": "Livestock",
+   "activity_type": "Cattle (number of head)",
+   "unit": "head",
+   "factor": 12.673,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Exiobase Australia",
+   "year": 2021
+  },
+  {
+   "id": "2",
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "Diesel (Litre or BTU)",
+   "unit": "Litre",
+   "factor": 2.66155,
+   "co2": 2.62818,
+   "ch4": 0.00001,
+   "n2o": 0.00012,
+   "source": "BIES 2025",
+   "year": 2025
+  },
+  {
+   "id": "5",
+   "scope": 1,
+   "category": "Mobile Combustion",
+   "activity_type": "Diesel (Litre)",
+   "unit": "Litre",
+   "factor": 2.9144,
+   "co2": 2.90999,
+   "ch4": 0.00232,
+   "n2o": 0.0021,
+   "source": "GHG Protocol 2024",
+   "year": 2024
+  },
+  {
+   "id": "13",
+   "scope": 1,
+   "category": "Livestock",
+   "activity_type": "Goat (number of head)",
+   "unit": "head",
+   "factor": 0.789,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Exiobase Australia",
+   "year": 2021
+  },
+  {
+   "id": "11",
+   "scope": 1,
+   "category": "Livestock",
+   "activity_type": "Horse (number of head)",
+   "unit": "head",
+   "factor": 0.789,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Exiobase Australia",
+   "year": 2021
+  },
+  {
+   "id": "3",
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "LPG (kg or BTU)",
+   "unit": "kg",
+   "factor": 61.953,
+   "co2": 61.71,
+   "ch4": 0.003,
+   "n2o": 0.0006,
+   "source": "PA Emission Factors for Greenhouse Gas Inventories",
+   "year": 2018
+  },
+  {
+   "id": "1",
+   "scope": 1,
+   "category": "Stationary Combustion",
+   "activity_type": "Natural Gas (Sm3 or BTU)",
+   "unit": "MMBTU",
+   "factor": 53.1145,
+   "co2": 53.06,
+   "ch4": 0.001,
+   "n2o": 0.0001,
+   "source": "PA Emission Factors for Greenhouse Gas Inventories",
+   "year": 2018
+  },
+  {
+   "id": "4",
+   "scope": 1,
+   "category": "Mobile Combustion",
+   "activity_type": "Petrol (Litre)",
+   "unit": "Litre",
+   "factor": 2.30154,
+   "co2": 2.28819,
+   "ch4": 0.00865,
+   "n2o": 0.0047,
+   "source": "GHG Protocol 2024",
+   "year": 2024
+  },
+  {
+   "id": "15",
+   "scope": 1,
+   "category": "Livestock",
+   "activity_type": "Poultry (number of head)",
+   "unit": "head",
+   "factor": 2.3946,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Exiobase Australia",
+   "year": 2021
+  },
+  {
+   "id": "10",
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R123",
+   "unit": "Kg",
+   "factor": 79,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "7",
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R22",
+   "unit": "Kg",
+   "factor": 1760,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "9",
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R32",
+   "unit": "Kg",
+   "factor": 677,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "8",
+   "scope": 1,
+   "category": "Refrigerant",
+   "activity_type": "Refrigerant R410",
+   "unit": "Kg",
+   "factor": 1924,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "14",
+   "scope": 1,
+   "category": "Livestock",
+   "activity_type": "Sheep (number of head)",
+   "unit": "head",
+   "factor": 0.789,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Exiobase Australia",
+   "year": 2021
+  },
+  {
+   "id": "6",
+   "scope": 1,
+   "category": "Water Treatment",
+   "activity_type": "Water (m3)",
+   "unit": "m3",
+   "factor": 0.17088,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "16",
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Electricity Bill (kWh)",
+   "unit": "Kwh",
+   "factor": 0.774,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Malaysia Energy Comission (2023)",
+   "year": 2023
+  },
+  {
+   "id": "19",
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Green Electricity Tarif Purchased (kWh)",
+   "unit": "Kwh",
+   "factor": 0.774,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Malaysia Energy Comission (2023)",
+   "year": 2023
+  },
+  {
+   "id": "17",
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Solar Generation (kWh)",
+   "unit": "Kwh",
+   "factor": 0.774,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Malaysia Energy Comission (2023)",
+   "year": 2023
+  },
+  {
+   "id": "18",
+   "scope": 2,
+   "category": "Electricity",
+   "activity_type": "Total Solar Injected to Grid (kWh)",
+   "unit": "Kwh",
+   "factor": 0.774,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "Malaysia Energy Comission (2023)",
+   "year": 2023
+  },
+  {
+   "id": "21",
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Food Waste",
+   "unit": "Kg",
+   "factor": 655.987,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "22",
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Kitar Semula",
+   "unit": "Kg",
+   "factor": 90,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "EPA",
+   "year": 2021
+  },
+  {
+   "id": "23",
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Sisa Landskap",
+   "unit": "Kg",
+   "factor": 646.607,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "20",
+   "scope": 3,
+   "category": "Waste (Solid)",
+   "activity_type": "Solid Waste (Landfill)",
+   "unit": "Kg",
+   "factor": 520.335,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  },
+  {
+   "id": "24",
+   "scope": 3,
+   "category": "Water Supply",
+   "activity_type": "Total Water Purchased (m3)",
+   "unit": "m3",
+   "factor": 0.1776,
+   "co2": null,
+   "ch4": null,
+   "n2o": null,
+   "source": "GHG Protocol 2025 Condensed Set",
+   "year": 2025
+  }
+ ],
+ "masterlistRows": [
+  [
+   "Scope Boundary",
+   "Data Category Name",
+   "Description",
+   "Primary Activity Data Inputs",
+   "Evidence",
+   "Included in then Inventory Baseline",
+   "Data Owner",
+   "Remarks"
+  ],
+  [
+   "Scope 1 (Direct)",
+   "Stationary Combustion",
+   "Emissions from burning fuels in fixed/stationary equipment (boilers, furnaces, generators).",
+   "Volume or mass of fuel consumed  + Fuel type.",
+   "Receipt of the purchase, Internal IT records",
+   "Yes",
+   "En Saiful - BPA - Email\n"
+  ],
+  [
+   "Scope 1 (Direct)",
+   "Mobile Combustion",
+   "Emissions from combustion of fuels in transportation assets owned/controlled by the company.",
+   "Fuel volume consumed (Liters) or distance traveled by vehicle type (km).",
+   "Receipt of the purchase, Internal IT records",
+   "Yes",
+   "BPA -"
+  ],
+  [
+   "Scope 1 (Direct)",
+   "Fugitive Emission",
+   "Leaks/releases of GHGs, most commonly hydrofluorocarbons from refrigeration/AC systems.",
+   "Mass of refrigerant top-ups/recharges filled during maintenance (kg) + Gas type.",
+   "Receipt of the purchase, Internal IT records",
+   "Yes",
+   "TBC"
+  ],
+  [
+   "Scope 2 (Indirect)",
+   "Purchased Electricity",
+   "Indirect emissions from electricity transited through a local grid and consumed by facility operations.",
+   "Electricity consumption in kilowatt-hours (kWh) or megawatt-hours (MWh).",
+   "Receipt of the purchase, Internal IT records",
+   "Yes",
+   "BPA -"
+  ],
+  [
+   "Scope 3 (Upstream)",
+   "Purchased Goods and Service",
+   "Extraction, production, and extraction of goods/services purchased or acquired (cradle-to-gate).",
+   "Spend-based (Procurement spend) OR Mass-based (kg of raw materials).",
+   "Receipt of the purchase, Internal IT records, Supplier emission records",
+   "Yes, Water Bills",
+   "BPA -"
+  ],
+  [
+   "Scope 3 (Upstream)",
+   "Waste generated in operations",
+   "Disposal and treatment of waste generated in owned or controlled operations by third parties.",
+   "Mass of waste (tonnes) categorized by waste material type and disposal method.",
+   "Receipt of the purchase, Internal IT records, Supplier emission records",
+   "Yes",
+   "BPA -"
+  ],
+  [
+   "Scope 3 (Upstream)",
+   "Business Travel",
+   "Transportation of employees for business activities in vehicles operated by third parties.",
+   "Flight distance & haul type, rail distance, rental car distance, or travel agency spend.",
+   "Internal IT records, Survey ",
+   "Yes",
+   "BPA -"
+  ],
+  [
+   "Scope 3 (Upstream)",
+   "Employee Commuting",
+   "Transportation of employees between homes and worksites (includes teleworking/WFH adjustments).",
+   "Number of employees, commuting frequency, average distance, and transport modes.",
+   "Internal IT records, Survey ",
+   "Yes",
+   "Pendaftar - BPKL"
+  ],
+  [
+   "Carbon Intensity Category",
+   "Staff and Students Population",
+   "The total numbers of Students and Staff in the organizaations to produce a carbon intesity study",
+   "Total numbers of Students and Staff in the organizaations",
+   "Internal IT Records",
+   "No, only for carbon intensity study",
+   "UGS"
+  ]
+ ]
+}

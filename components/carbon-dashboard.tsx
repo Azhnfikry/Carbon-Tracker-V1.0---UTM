@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
+import { YearSelect } from "@/components/year-select"
 import { Download, LogOut, LogIn, Leaf, FileText, Table2 } from "lucide-react"
 import { EmissionSummaryComponent } from "@/components/emission-summary"
 import { EmissionChart } from "@/components/emission-chart"
@@ -39,6 +40,7 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isExportingSheets, setIsExportingSheets] = useState(false)
+  const [overviewYear, setOverviewYear] = useState("overall")
   const router = useRouter()
   const supabase = createClient()
 
@@ -213,6 +215,20 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
     }
   }
 
+  // Years that have emission entries, newest first, for the Overview year filter.
+  const entryYears = useMemo(
+    () => [...new Set(entries.map((entry) => String(entry.date).slice(0, 4)).filter((year) => /^\d{4}$/.test(year)))].sort().reverse(),
+    [entries]
+  )
+  const selectedYear = entryYears.includes(overviewYear) ? overviewYear : "overall"
+  const overviewSummary = useMemo(
+    () =>
+      selectedYear === "overall"
+        ? summary
+        : calculateEmissionSummary(entries.filter((entry) => String(entry.date).startsWith(selectedYear))),
+    [entries, summary, selectedYear]
+  )
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -229,8 +245,17 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
       case "overview":
         return (
           <div className="space-y-6">
-            <EmissionSummaryComponent summary={summary} />
-            <EmissionChart summary={summary} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Emissions Overview</h2>
+                <p className="text-sm text-muted-foreground">
+                  {selectedYear === "overall" ? "All recorded years" : `January – December ${selectedYear}`}
+                </p>
+              </div>
+              <YearSelect value={selectedYear} years={entryYears} onChange={setOverviewYear} />
+            </div>
+            <EmissionSummaryComponent summary={overviewSummary} />
+            <EmissionChart summary={overviewSummary} />
           </div>
         )
       case "add-entry":
@@ -242,13 +267,13 @@ export function CarbonDashboard({ user, profile }: CarbonDashboardProps) {
       case "emission-factors":
         return <EmissionFactorsPage />
       case "charts":
-        return <ChartsPage entries={entries} summary={summary} studentEntries={studentEntries} />
+        return <ChartsPage entries={entries} summary={summary} />
       case "ai-assistant":
         return <AIAssistant />
       case "all-entries":
         return <EmissionTable entries={entries} studentEntries={studentEntries} onDataChange={refreshData} user={user} />
       case "reports":
-        return <EmissionReport />
+        return <EmissionReport year={selectedYear} years={entryYears} onYearChange={setOverviewYear} />
       case "company-info":
         return <CompanyInfoForm user={user} />
       default:

@@ -14,8 +14,8 @@ type ChatMessage = {
 
 const starterPrompts = [
   "Summarize my carbon performance and biggest hotspot.",
-  "Check my data quality and missing student-count issues.",
-  "Explain the tCO2e/student trend in simple terms.",
+  "Check my data quality and flag any issues.",
+  "Explain my monthly emissions trend in simple terms.",
   "What should UTM prioritize to reduce emissions?",
 ];
 
@@ -24,7 +24,7 @@ export function AIAssistant() {
     {
       role: "assistant",
       content:
-        "Hi. I can review your emissions, student counts, categories, monthly trends, and tCO2e/student. Ask me what you want to understand.",
+        "Hi. I can review your emissions, scopes, categories, facilities, and monthly trends. Ask me what you want to understand.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -74,7 +74,7 @@ export function AIAssistant() {
           </div>
           <div>
             <h2 className="text-2xl font-semibold text-foreground">AI Carbon Assistant</h2>
-            <p className="text-muted-foreground">Read-only analysis for emissions, student intensity, and reporting decisions.</p>
+            <p className="text-muted-foreground">Read-only analysis for emissions, trends, and reporting decisions.</p>
           </div>
         </div>
       </div>
@@ -155,7 +155,7 @@ export function AIAssistant() {
             <Textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask about hotspots, student intensity, data gaps, trend changes, or report wording..."
+              placeholder="Ask about hotspots, data gaps, trend changes, or report wording..."
               rows={3}
               disabled={isLoading}
             />

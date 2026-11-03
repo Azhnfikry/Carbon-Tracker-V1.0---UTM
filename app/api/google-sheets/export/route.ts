@@ -45,9 +45,7 @@ function monthLabel(key: string) {
 
 function buildExportTables(entries: EmissionEntry[], studentEntries: StudentCountEntry[], companyInfo: any) {
   const summary = calculateEmissionSummary(entries);
-  const latestStudentCount = [...studentEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.students || 0;
   const totalTco2e = summary.totalEmissions / 1000;
-  const perStudent = latestStudentCount > 0 ? totalTco2e / latestStudentCount : 0;
 
   const summaryRows: SheetRow[] = [
     ["Carbon Accounting Export"],
@@ -61,8 +59,6 @@ function buildExportTables(entries: EmissionEntry[], studentEntries: StudentCoun
     ["Scope 1", summary.scope1, "kg CO2e"],
     ["Scope 2", summary.scope2, "kg CO2e"],
     ["Scope 3", summary.scope3, "kg CO2e"],
-    ["Latest Student Count", latestStudentCount, "students"],
-    ["Emissions Intensity", perStudent, "tCO2e/student"],
   ];
 
   const categoryRows: SheetRow[] = [
@@ -110,30 +106,17 @@ function buildExportTables(entries: EmissionEntry[], studentEntries: StudentCoun
     monthly.set(key, current);
   }
 
-  const sortedStudents = [...studentEntries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const getStudentsForMonth = (key: string) => {
-    const [year, month] = key.split("-");
-    const monthEnd = new Date(Number(year), Number(month), 0).getTime();
-    const latest = sortedStudents.filter((entry) => new Date(entry.date).getTime() <= monthEnd).at(-1);
-    return latest?.students || sortedStudents.at(-1)?.students || 0;
-  };
-
   const monthlyRows: SheetRow[] = [
-    ["Month", "Total kg CO2e", "Scope 1 kg CO2e", "Scope 2 kg CO2e", "Scope 3 kg CO2e", "Students", "tCO2e/student"],
+    ["Month", "Total kg CO2e", "Scope 1 kg CO2e", "Scope 2 kg CO2e", "Scope 3 kg CO2e"],
     ...[...monthly.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, data]) => {
-        const students = getStudentsForMonth(key);
-        return [
-          monthLabel(key),
-          Number(data.total.toFixed(4)),
-          Number(data.scope1.toFixed(4)),
-          Number(data.scope2.toFixed(4)),
-          Number(data.scope3.toFixed(4)),
-          students,
-          students > 0 ? Number(((data.total / 1000) / students).toFixed(8)) : "",
-        ];
-      }),
+      .map(([key, data]) => [
+        monthLabel(key),
+        Number(data.total.toFixed(4)),
+        Number(data.scope1.toFixed(4)),
+        Number(data.scope2.toFixed(4)),
+        Number(data.scope3.toFixed(4)),
+      ]),
   ];
 
   const studentRows: SheetRow[] = [
